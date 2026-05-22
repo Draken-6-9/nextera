@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NextEra - Investissement Durable</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --green: #22c55e;
+            --green-dark: #16a34a;
+            --green-light: #dcfce7;
+            --green-bg: #f0fdf4;
+            --gold: #f59e0b;
+            --silver: #94a3b8;
+            --bronze: #cd7f32;
+            --platinum: #a855f7;
+            --diamond: #06b6d4;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --orange: #f97316;
+            --text: #166534;
+            --text2: #666;
+            --white: #fff;
+            --radius: 16px;
+            --radius-sm: 12px;
+            --shadow: 0 2px 12px rgba(0, 0, 0, .08);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--green-bg);
+            color: var(--text);
+            max-width: 500px;
+            margin: 0 auto;
+            min-height: 100dvh;
+            padding-bottom: 75px;
+        }
+
+        .page {
+            display: none;
+            padding: 20px;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--green);
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--green);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: var(--green);
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--green-light);
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            background: var(--green);
+            color: var(--white);
+            border: none;
+            padding: 13px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            transition: all .15s;
+        }
+
+        .btn:active {
+            transform: scale(.97);
+            background: var(--green-dark);
+        }
+
+        .btn-outline {
+            background: var(--white);
+            color: var(--green);
+            border: 2px solid var(--green);
+        }
+
+        .btn-danger {
+            background: var(--red);
+        }
+
+        .btn-orange {
+            background: var(--orange);
+        }
+
+        .btn-sm {
+            padding: 10px 14px;
+            font-size: 13px;
+            width: auto;
+            border-radius: 10px;
+        }
+
+        .flex {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mt1 {
+            margin-top: 8px;
+        }
+
+        .mt2 {
+            margin-top: 16px;
+        }
+
+        .mb1 {
+            margin-bottom: 8px;
+        }
+
+        .mb2 {
+            margin-bottom: 16px;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .action-card {
+            background: linear-gradient(135deg, var(--white), var(--green-bg));
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid var(--green-light);
+            transition: all .2s;
+        }
+
+        .action-card:active {
+            transform: scale(.96);
+            background: var(--green-light);
+        }
+
+        .action-emoji {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .action-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--green-dark);
+        }
+
+        .action-sub {
+            font-size: 11px;
+            color: var(--text2);
+            margin-top: 4px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 13px 14px;
+            border: 1.5px solid var(--green-light);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            margin-bottom: 10px;
+            background: var(--white);
+            color: #222;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--green);
+        }
+
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 500px;
+            margin: 0 auto;
+            background: var(--white);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 10px;
+            border-top: 1.5px solid var(--green-light);
+            z-index: 200;
+        }
+
+        .nav-item {
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 11px;
+            color: #86efac;
+            cursor: pointer;
+            padding: 7px 10px;
+            border-radius: 10px;
+            transition: all .2s;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: var(--green);
+            background: var(--green-bg);
+        }
+
+        .nav-item span {
+            display: block;
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        .amount {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--green);
+            letter-spacing: -1px;
+        }
+
+        .amount-sm {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .tier {
+            display: inline-block;
+            padding: 3px 11px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .tier-bronze {
+            background: var(--bronze);
+            color: #fff;
+        }
+
+        .tier-argent {
+            background: var(--silver);
+            color: #fff;
+        }
+
+        .tier-or {
+            background: var(--gold);
+            color: #fff;
+        }
+
+        .tier-platine {
+            background: var(--platinum);
+            color: #fff;
+        }
+
+        .tier-diamant {
+            background: var(--diamond);
+            color: #fff;
+        }
+
+        .progress-bar {
+            background: #e5e7eb;
+            border-radius: 10px;
+            height: 8px;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--green), var(--green-dark));
+            height: 100%;
+            border-radius: 10px;
+            transition: width .6s ease;
+        }
+
+        .product-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .product-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 18px;
+            cursor: pointer;
+            border: 1.5px solid var(--green-light);
+            transition: all .2s;
+            position: relative;
+        }
+
+        .product-card:active {
+            transform: scale(.98);
+            background: var(--green-bg);
+        }
+
+        .machine-icon {
+            font-size: 38px;
+            margin-bottom: 6px;
+        }
+
+        .product-title {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .product-yield {
+            color: var(--green);
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .product-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .meta-item {
+            text-align: center;
+            flex: 1;
+            background: var(--green-bg);
+            border-radius: 10px;
+            padding: 6px;
+        }
+
+        .meta-val {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .meta-key {
+            font-size: 10px;
+            color: var(--text2);
+            text-transform: uppercase;
+        }
+
+        .tx-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 0;
+            border-bottom: 1px solid var(--green-light);
+        }
+
+        .tx-item:last-child {
+            border-bottom: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, .55);
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 500;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 24px 24px 0 0;
+            padding: 26px 22px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90dvh;
+            overflow-y: auto;
+        }
+
+        .modal-handle {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 4px;
+            margin: 0 auto 20px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 85px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 30px;
+            z-index: 1100;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            animation: fadeIn .2s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .gain-ticker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--green-bg);
+            border: 1px solid var(--green-light);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--green-dark);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: .4;
+                transform: scale(.8);
+            }
+        }
+
+        .inv-row {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--green-light);
+        }
+
+        .inv-name {
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .gain-chip {
+            background: var(--green-light);
+            color: var(--green-dark);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            background: var(--green-bg);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid var(--green-light);
+        }
+
+        .stat-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--green);
+        }
+
+        .stat-key {
+            font-size: 11px;
+            color: var(--text2);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--green-light);
+            color: var(--green-dark);
+        }
+
+        .tree-level {
+            background: var(--green-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid var(--green);
+        }
+
+        .level-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .level-commission {
+            color: var(--green);
+            font-weight: 800;
+        }
+
+        .payment-info {
+            background: var(--green-bg);
+            border-radius: 12px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: var(--text2);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PAGE AUTH -->
+    <div id="page-auth" class="page active">
+        <div class="text-center" style="margin-top:50px;margin-bottom:30px;">
+            <div style="font-size:64px;margin-bottom:8px;">🌿</div>
+            <div style="font-size:30px;font-weight:800;color:var(--green);">NextEra</div>
+            <div style="color:var(--text2);font-size:14px;">Investissement Durable - Rendement 20%/j</div>
+        </div>
+        <div class="card">
+            <div class="flex mb2">
+                <button class="btn" id="showLoginBtn" onclick="showLoginForm()">Connexion</button>
+                <button class="btn btn-outline" id="showRegisterBtn" onclick="showRegisterForm()">Inscription</button>
+            </div>
+            <div id="loginForm">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="votre@email.com">
+                <label>Mot de passe</label>
+                <input type="password" id="loginPassword" placeholder="••••••">
+                <button class="btn" onclick="login()">Se connecter</button>
+                <div class="text-center mt1" style="font-size:12px;color:var(--text2);">
+                    <!-- Admin: <strong>admin@nextera.com</strong> / <strong>admin123</strong><br>
+                    Test: <strong>test@nextera.com</strong> / <strong>test123</strong> -->
+                </div>
+            </div>
+            <div id="registerForm" style="display:none;">
+                <label>Nom complet</label>
+                <input type="text" id="regName" placeholder="Votre nom">
+                <label>Email</label>
+                <input type="email" id="regEmail" placeholder="votre@email.com">
+                <label>Téléphone</label>
+                <input type="tel" id="regPhone" placeholder="6XXXXXXXX">
+                <label>Mot de passe (min 6)</label>
+                <input type="password" id="regPassword" placeholder="••••••">
+                <label>Code parrainage (optionnel)</label>
+                <input type="text" id="regReferral" placeholder="NEXT-XXXXXX">
+                <button class="btn" onclick="register()">Créer mon compte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE DASHBOARD -->
+    <div id="page-dashboard" class="page">
+        <div class="header">
+            <div class="logo">🌿 NextEra</div>
+            <div style="display:flex;gap:8px;">
+                <span id="adminBadge" style="display:none;cursor:pointer;" onclick="showPage('admin')">
+                    <span
+                        style="background:var(--gold);color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;">⚙️
+                        Admin</span>
+                </span>
+                <button class="back-btn" onclick="logout()">🚪</button>
+            </div>
+        </div>
+
+        <div class="card text-center">
+            <div class="card-title">Mon portefeuille</div>
+            <div class="amount" id="balance">0</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">XAF disponible</div>
+            <div class="gain-ticker mb1">
+                <div class="pulse-dot"></div>
+                <span>Gains du jour: <strong id="dailyGainDisplay">+0 XAF</strong></span>
+            </div>
+            <div class="flex" style="justify-content:center;">
+                <button class="btn btn-sm" onclick="openModal('deposit')">💸 Déposer</button>
+                <button class="btn btn-outline btn-sm" onclick="openModal('withdraw')">💰 Retirer</button>
+            </div>
+        </div>
+
+        <div class="action-grid">
+            <div class="action-card" onclick="window.open('https://t.me/nextera_official', '_blank')">
+                <div class="action-emoji">📢</div>
+                <div class="action-title">Canal Telegram</div>
+                <div class="action-sub">Actualités & Annonces</div>
+            </div>
+            <div class="action-card" onclick="window.open('https://chat.whatsapp.com/nextera', '_blank')">
+                <div class="action-emoji">💬</div>
+                <div class="action-title">Groupe WhatsApp</div>
+                <div class="action-sub">Entraide & Support</div>
+            </div>
+            <div class="action-card" onclick="claimDailyBonus()">
+                <div class="action-emoji">🎁</div>
+                <div class="action-title">Bonus Journalier</div>
+                <div class="action-sub" id="bonusStatus">+100 XAF dispo</div>
+            </div>
+            <div class="action-card" onclick="showPage('referral')">
+                <div class="action-emoji">👥</div>
+                <div class="action-title">Mes Filleuls</div>
+                <div class="action-sub" id="referralCountDisplay">0 filleuls</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:700;">🏆 Mon Palier</span>
+                <span class="tier tier-bronze" id="userTier">Bronze</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="tierProgress" style="width:0%"></div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);" id="nextTierText"></div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="totalInvestedLabel"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📈 Mes machines actives</div>
+            <div id="investmentsList">
+                <div style="text-align:center;padding:20px;color:#888;">Aucun investissement</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🔄 Dernières transactions</div>
+            <div id="transactionsList">
+                <div style="text-align:center;padding:20px;color:#888;">Aucune transaction</div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <button class="nav-item active" onclick="showPage('dashboard')"><span>🏠</span>Accueil</button>
+            <button class="nav-item" onclick="showPage('market')"><span>📊</span>Marché</button>
+            <button class="nav-item" onclick="showPage('referral')"><span>👥</span>Parrainage</button>
+            <button class="nav-item" onclick="showPage('profile')"><span>👤</span>Profil</button>
+        </div>
+    </div>
+
+    <!-- PAGE MARCHÉ -->
+    <div id="page-market" class="page">
+        <div class="header">
+            <button class="back-btn" onclick="showPage('dashboard')">←</button>
+            <div class="logo">📊 Marché des machines</div>
+            <div></div>
+        </div>
+        <div
+            style="font-size:13px;color:var(--green-dark);margin-bottom:14px;background:var(--green-bg);padding:10px 14px;border-radius:12px;text-align:center;">
+            💡 Rendement garanti: <strong>20% par jour</strong> sur votre investissement !<br>
+            ⚡ 5000 XAF → 1000 XAF/jour | 10000 XAF → 2000 XAF/jour
+        </div>
+        <div class="product-grid" id="marketProducts"></div>
+        <div class="bottom-nav">
+            <button class="nav-item" onclick="showPage('dashboard')"><span>🏠</span>Accueil</button>
+            <button class="nav-item active" onclick="showPage('market')"><span>📊</span>Marché</button>
+            <button class="nav-item" onclick="showPage('referral')"><span>👥</span>Parrainage</button>
+            <button class="nav-item" onclick="showPage('profile')"><span>👤</span>Profil</button>
+        </div>
+    </div>
+
+    <!-- PAGE PARRAINAGE -->
+    <div id="page-referral" class="page">
+        <div class="header">
+            <button class="back-btn" onclick="showPage('dashboard')">←</button>
+            <div class="logo">👥 Parrainage</div>
+            <div></div>
+        </div>
+        <div class="card text-center">
+            <div class="card-title">Mon code de parrainage</div>
+            <div
+                style="background:var(--green-bg);border:2px dashed var(--green);border-radius:14px;padding:18px;margin:12px 0;">
+                <div style="font-size:28px;font-weight:800;letter-spacing:3px;color:var(--green-dark);"
+                    id="referralCode">---</div>
+            </div>
+            <button class="btn" onclick="copyReferralCode()">📋 Copier le lien</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🏆 Commissions parrainage (Pyramide)</div>
+            <div class="tree-level">
+                <div class="level-title">👤 Niveau 1 (Parrain direct)</div>
+                <div class="level-commission">💰 10% des investissements de vos filleuls</div>
+            </div>
+            <div class="tree-level">
+                <div class="level-title">👥 Niveau 2 (Filleuls de vos filleuls)</div>
+                <div class="level-commission">💰 5% des investissements des filleuls indirects</div>
+            </div>
+            <div class="tree-level">
+                <div class="level-title">👨‍👩‍👧 Niveau 3 (3ème génération)</div>
+                <div class="level-commission">💰 3% des investissements (3ème niveau)</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💰 Gains de parrainage</div>
+            <div class="amount-sm" id="referralEarnings">0</div>
+            <div style="font-size:13px;color:var(--text2);">XAF gagnés au total</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 Répartition des filleuls</div>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-val" id="level1Count">0</div>
+                    <div class="stat-key">Niveau 1</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="level2Count">0</div>
+                    <div class="stat-key">Niveau 2</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="level3Count">0</div>
+                    <div class="stat-key">Niveau 3</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="totalRefCount">0</div>
+                    <div class="stat-key">Total filleuls</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🌳 Arbre de parrainage</div>
+            <div id="referralTree" style="font-size:13px;max-height:300px;overflow-y:auto;"></div>
+        </div>
+
+        <div class="bottom-nav">
+            <button class="nav-item" onclick="showPage('dashboard')"><span>🏠</span>Accueil</button>
+            <button class="nav-item" onclick="showPage('market')"><span>📊</span>Marché</button>
+            <button class="nav-item active" onclick="showPage('referral')"><span>👥</span>Parrainage</button>
+            <button class="nav-item" onclick="showPage('profile')"><span>👤</span>Profil</button>
+        </div>
+    </div>
+
+    <!-- PAGE PROFIL -->
+    <div id="page-profile" class="page">
+        <div class="header">
+            <button class="back-btn" onclick="showPage('dashboard')">←</button>
+            <div class="logo">👤 Mon Profil</div>
+            <div></div>
+        </div>
+        <div class="card text-center">
+            <div style="font-size:60px;margin-bottom:10px;">👤</div>
+            <div style="font-size:20px;font-weight:800;" id="profileName">---</div>
+            <div style="color:var(--text2);font-size:14px;margin-top:4px;" id="profileEmail">---</div>
+            <div style="color:var(--text2);font-size:14px;" id="profilePhone">---</div>
+            <div style="margin-top:10px;" id="profileTier"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">📊 Statistiques</div>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-val" id="statBalance">0</div>
+                    <div class="stat-key">Solde XAF</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="statInvested">0</div>
+                    <div class="stat-key">Investi XAF</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="statGains">0</div>
+                    <div class="stat-key">Gains totaux</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="statReferrals">0</div>
+                    <div class="stat-key">Filleuls</div>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-danger" onclick="logout()">🚪 Se déconnecter</button>
+        <div class="bottom-nav">
+            <button class="nav-item" onclick="showPage('dashboard')"><span>🏠</span>Accueil</button>
+            <button class="nav-item" onclick="showPage('market')"><span>📊</span>Marché</button>
+            <button class="nav-item" onclick="showPage('referral')"><span>👥</span>Parrainage</button>
+            <button class="nav-item active" onclick="showPage('profile')"><span>👤</span>Profil</button>
+        </div>
+    </div>
+
+    <!-- PAGE ADMIN -->
+    <div id="page-admin" class="page">
+        <div class="header">
+            <button class="back-btn" onclick="showPage('dashboard')">←</button>
+            <div class="logo">⚙️ Administration</div>
+            <div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">📊 Statistiques globales</div>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-val" id="aStatUsers">0</div>
+                    <div class="stat-key">Utilisateurs</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="aStatInvests">0</div>
+                    <div class="stat-key">Investissements</div>
+                </div>
+            </div>
+            <button class="btn btn-orange mt1" onclick="distributeAllGains()">⚡ Distribuer les gains
+                journaliers</button>
+            <button class="btn btn-danger mt1" onclick="resetDB()">🗑️ Réinitialiser la base</button>
+        </div>
+        <div class="card">
+            <div class="card-title">👥 Gestion des utilisateurs</div>
+            <div id="adminUsersList"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">⚙️ Machines (prix, rendement 20%)</div>
+            <div id="adminMachinesList"></div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="depositModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="text-center mb2"><strong style="font-size:18px;">💸 Déposer des fonds</strong></div>
+            <div class="payment-info" id="depositPaymentInfo">💰 Le paiement sera traité via Mobile Money</div>
+            <label>Montant (XAF)</label>
+            <input type="number" id="depositAmount" placeholder="1000" min="1000">
+            <label>Opérateur Mobile Money</label>
+            <select id="depositOperator" onchange="updatePaymentInfo('deposit')">
+                <option value="mtn">📱 MTN Mobile Money</option>
+                <option value="orange">🟠 Orange Money</option>
+            </select>
+            <label>Numéro Mobile Money</label>
+            <input type="tel" id="depositPhone" placeholder="6XXXXXXXX">
+            <div class="flex mt1">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('depositModal')">Annuler</button>
+                <button class="btn btn-sm" onclick="processDeposit()">✅ Payer et déposer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="withdrawModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="text-center mb2"><strong style="font-size:18px;">💰 Retirer des fonds</strong></div>
+            <label>Montant (XAF)</label>
+            <input type="number" id="withdrawAmount" placeholder="1000" min="1000">
+            <label>Opérateur Mobile Money</label>
+            <select id="withdrawOperator">
+                <option value="mtn">📱 MTN Mobile Money</option>
+                <option value="orange">🟠 Orange Money</option>
+            </select>
+            <label>Numéro Mobile Money</label>
+            <input type="tel" id="withdrawPhone" placeholder="6XXXXXXXX">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:10px;" id="withdrawFeeInfo"></div>
+            <div class="flex mt1">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('withdrawModal')">Annuler</button>
+                <button class="btn btn-sm" onclick="processWithdraw()">✅ Confirmer le retrait</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="investModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="text-center mb2">
+                <div style="font-size:42px;" id="investIcon">⚡</div>
+                <div style="font-size:20px;font-weight:800;" id="investProductName"></div>
+                <div style="color:var(--green);font-size:16px;margin-top:4px;" id="investYield"></div>
+            </div>
+            <label>Montant d'achat (XAF)</label>
+            <input type="number" id="investAmount" placeholder="5000" oninput="updateInvestPreview()">
+            <div id="investPreview"
+                style="background:var(--green-bg);border-radius:12px;padding:12px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;"><span>Gain journalier:</span><strong
+                        id="previewDaily" style="color:var(--green);">0 XAF</strong></div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Gain mensuel
+                        (30j):</span><strong id="previewMonthly" style="color:var(--green);">0 XAF</strong></div>
+            </div>
+            <div class="flex mt1"><button class="btn btn-outline btn-sm"
+                    onclick="closeModal('investModal')">Annuler</button><button class="btn btn-sm" onclick="invest()">🚀
+                    Investir</button></div>
+        </div>
+    </div>
+
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="text-center mb2"><strong>✏️ Modifier utilisateur</strong></div>
+            <input type="hidden" id="editUserId">
+            <label>Nom</label><input type="text" id="editUserName">
+            <label>Solde (XAF)</label><input type="number" id="editUserBalance">
+            <label>Total investi (XAF)</label><input type="number" id="editUserInvested">
+            <div class="flex mt1"><button class="btn btn-outline btn-sm"
+                    onclick="closeModal('editUserModal')">Annuler</button><button class="btn btn-sm"
+                    onclick="saveUserEdit()">💾 Sauvegarder</button></div>
+        </div>
+    </div>
+
+    <div id="editMachineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="text-center mb2"><strong>⚙️ Modifier machine</strong></div>
+            <input type="hidden" id="editMachineId">
+            <label>Nom</label><input type="text" id="editMachineName">
+            <label>Prix (XAF)</label><input type="number" id="editMachinePrice">
+            <div class="flex mt1"><button class="btn btn-outline btn-sm"
+                    onclick="closeModal('editMachineModal')">Annuler</button><button class="btn btn-sm"
+                    onclick="saveMachineEdit()">💾 Sauvegarder</button></div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // CONFIGURATION — détection automatique de l'URL du backend
+    // ============================================================
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:3000/api'
+        : `${window.location.protocol}//${window.location.hostname}/api`;
+
+    let authToken    = localStorage.getItem('token');
+    let currentUser  = null;
+    let currentProduct = null;
+    let cachedMachines = [];
+
+    // ============================================================
+    // COUCHE API
+    // ============================================================
+    async function callAPI(endpoint, method = 'GET', body = null, timeout = 15000) {
+        const controller = new AbortController();
+        const timeoutId  = setTimeout(() => controller.abort(), timeout);
+        const headers    = { 'Content-Type': 'application/json' };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const options = { method, headers, signal: controller.signal };
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`${API_URL}${endpoint}`, options);
+            clearTimeout(timeoutId);
+            return await response.json();
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') return { success: false, message: 'Le serveur ne répond pas.' };
+            console.error('API Error:', err);
+            return { success: false, message: 'Erreur de connexion au serveur' };
+        }
+    }
+
+    // ============================================================
+    // AUTHENTIFICATION
+    // ============================================================
+    async function login() {
+        const email    = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        if (!email || !password) { toast('Veuillez remplir tous les champs'); return; }
+        toast('Connexion en cours...');
+        const data = await callAPI('/auth/login', 'POST', { email, password });
+        if (data.success) {
+            authToken   = data.token;
+            currentUser = data.user;
+            localStorage.setItem('token', authToken);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            toast('✅ Connexion réussie !');
+            showPage('dashboard');
+        } else {
+            toast(data.message || 'Email ou mot de passe incorrect');
+        }
+    }
+
+    async function register() {
+        const name         = document.getElementById('regName').value.trim();
+        const email        = document.getElementById('regEmail').value.trim().toLowerCase();
+        const phone        = document.getElementById('regPhone').value.trim();
+        const password     = document.getElementById('regPassword').value;
+        const referralCode = document.getElementById('regReferral').value.trim();
+        if (!name || !email || !phone || !password) { toast('Veuillez remplir tous les champs'); return; }
+        if (password.length < 6) { toast('Mot de passe trop court (min 6 caractères)'); return; }
+        toast('Création du compte...');
+        const data = await callAPI('/auth/register', 'POST', { name, email, phone, password, referralCode });
+        if (data.success) {
+            authToken   = data.token;
+            currentUser = data.user;
+            localStorage.setItem('token', authToken);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            toast('🎉 Compte créé avec succès !');
+            showPage('dashboard');
+        } else {
+            toast(data.message || 'Erreur lors de l\'inscription');
+        }
+    }
+
+    function logout() {
+        authToken = null; currentUser = null;
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        toast('Déconnecté');
+        showPage('auth');
+        showLoginForm();
+    }
+
+    function showLoginForm() {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('showLoginBtn').className = 'btn';
+        document.getElementById('showRegisterBtn').className = 'btn btn-outline';
+    }
+
+    function showRegisterForm() {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('showLoginBtn').className = 'btn btn-outline';
+        document.getElementById('showRegisterBtn').className = 'btn';
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    function showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        const target = document.getElementById(`page-${page}`);
+        if (target) target.classList.add('active');
+        if (page === 'dashboard' && authToken) loadDashboard();
+        if (page === 'market'    && authToken) loadMarket();
+        if (page === 'referral'  && authToken) loadReferral();
+        if (page === 'profile'   && authToken) loadProfile();
+        if (page === 'admin'     && currentUser?.isAdmin) loadAdmin();
+    }
+
+    // ============================================================
+    // DASHBOARD
+    // ============================================================
+    async function loadDashboard() {
+        if (!authToken) return;
+        try {
+            const savedUser = localStorage.getItem('user');
+            if (savedUser && !currentUser) currentUser = JSON.parse(savedUser);
+            if (currentUser) {
+                document.getElementById('adminBadge').style.display = currentUser.isAdmin ? 'inline-block' : 'none';
+                const pnEl = document.getElementById('profileName');
+                const peEl = document.getElementById('profileEmail');
+                const ppEl = document.getElementById('profilePhone');
+                if (pnEl) pnEl.innerText = currentUser.name  || '';
+                if (peEl) peEl.innerText = currentUser.email || '';
+                if (ppEl) ppEl.innerText = currentUser.phone || '';
+            }
+
+            // Portefeuille
+            const portData = await callAPI('/portfolio');
+            if (portData.success) {
+                const p = portData.portfolio;
+                document.getElementById('balance').innerText        = (p.balance || 0).toLocaleString('fr-FR');
+                document.getElementById('statBalance').innerText    = (p.balance || 0).toLocaleString('fr-FR');
+                document.getElementById('statInvested').innerText   = (p.totalInvested || 0).toLocaleString('fr-FR');
+                document.getElementById('statGains').innerText      = (p.totalGains || 0).toLocaleString('fr-FR');
+                document.getElementById('totalInvestedLabel').innerHTML =
+                    `Total investi: ${(p.totalInvested || 0).toLocaleString('fr-FR')} XAF`;
+            }
+
+            // Investissements
+            const invData = await callAPI('/investments');
+            let dailyGain = 0;
+            if (invData.success && invData.investments.length > 0) {
+                document.getElementById('investmentsList').innerHTML = invData.investments.map(inv => {
+                    const gpd = Math.round(inv.amount * (inv.dailyYield / 100));
+                    dailyGain += gpd;
+                    return `<div class="inv-row">
+                        <div style="display:flex;justify-content:space-between;">
+                            <span class="inv-name">${inv.icon || '⚡'} ${inv.name}</span>
+                            <span class="inv-amount">${inv.amount.toLocaleString('fr-FR')} XAF</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                            <span>${new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                            <span class="gain-chip">+${gpd.toLocaleString('fr-FR')} XAF/jour</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                document.getElementById('investmentsList').innerHTML =
+                    '<div style="text-align:center;padding:20px;color:#888;">Aucune machine achetée</div>';
+            }
+            document.getElementById('dailyGainDisplay').innerHTML = `+${dailyGain.toLocaleString('fr-FR')} XAF`;
+
+            // Transactions
+            const txData = await callAPI('/transactions');
+            if (txData.success && txData.transactions.length > 0) {
+                const icons = { deposit:'💸', withdrawal:'💰', investment:'📈', referral:'🎁', gain:'⚡', bonus:'🎁' };
+                document.getElementById('transactionsList').innerHTML = txData.transactions.slice(0,6).map(tx => `
+                    <div class="tx-item">
+                        <div>
+                            <strong>${icons[tx.type]||'💳'} ${
+                                tx.type==='gain'?'Gain journalier':tx.type==='bonus'?'Bonus 100 XAF':tx.type
+                            }</strong>
+                            <div style="font-size:11px;color:#888;">${new Date(tx.createdAt||tx.created_at).toLocaleString('fr-FR')}</div>
+                        </div>
+                        <span style="color:${tx.type==='withdrawal'?'var(--red)':'var(--green)'};">
+                            ${tx.type==='withdrawal'?'-':'+'}${(tx.amount||0).toLocaleString('fr-FR')} XAF
+                        </span>
+                    </div>`).join('');
+            } else {
+                document.getElementById('transactionsList').innerHTML =
+                    '<div style="text-align:center;padding:20px;color:#888;">Aucune transaction</div>';
+            }
+
+            // Parrainage (compte filleuls)
+            const refData = await callAPI('/referral/stats');
+            if (refData.success) {
+                document.getElementById('referralCountDisplay').innerHTML =
+                    (refData.counts?.level1 || 0) + ' filleuls';
+                const refEl = document.getElementById('referralEarnings');
+                if (refEl) refEl.innerText = (refData.totalEarnings || 0).toLocaleString('fr-FR');
+                const srEl = document.getElementById('statReferrals');
+                if (srEl) srEl.innerText =
+                    (refData.counts?.level1||0)+(refData.counts?.level2||0)+(refData.counts?.level3||0);
+            }
+        } catch (err) {
+            console.error('Dashboard error:', err);
+            toast('Erreur lors du chargement');
+        }
+    }
+
+    // ============================================================
+    // MARCHÉ — charge les machines depuis l'API (BDD)
+    // ============================================================
+    async function loadMarket() {
+        document.getElementById('marketProducts').innerHTML =
+            '<div style="text-align:center;padding:30px;color:#888;">Chargement des machines...</div>';
+
+        const data = await callAPI('/machines');
+        if (!data.success || !data.machines || data.machines.length === 0) {
+            document.getElementById('marketProducts').innerHTML =
+                '<div style="text-align:center;padding:30px;color:#888;">Aucune machine disponible</div>';
+            return;
+        }
+
+        cachedMachines = data.machines.map(m => ({
+            id:         String(m.id),
+            name:       m.name,
+            icon:       m.icon || '⚡',
+            price:      parseInt(m.price),
+            dailyYield: parseInt(m.daily_yield),
+            desc:       m.description || `${Math.round(parseInt(m.price)*parseInt(m.daily_yield)/100).toLocaleString('fr-FR')} XAF/jour`
+        }));
+
+        document.getElementById('marketProducts').innerHTML = cachedMachines.map(m => {
+            const dailyGain   = Math.round(m.price * m.dailyYield / 100);
+            const monthlyGain = dailyGain * 30;
+            return `<div class="product-card" onclick="openInvestModal('${m.id}')">
+                <div class="machine-icon">${m.icon}</div>
+                <div class="product-title">
+                    <span>${m.name}</span>
+                    <span class="product-yield">+${m.dailyYield}%/j</span>
+                </div>
+                <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">${m.desc}</div>
+                <div class="product-meta">
+                    <div class="meta-item"><div class="meta-val">${m.price.toLocaleString('fr-FR')}</div><div class="meta-key">Prix XAF</div></div>
+                    <div class="meta-item"><div class="meta-val">+${dailyGain.toLocaleString('fr-FR')}</div><div class="meta-key">Gain/j</div></div>
+                    <div class="meta-item"><div class="meta-val">+${monthlyGain.toLocaleString('fr-FR')}</div><div class="meta-key">Gain/mois</div></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function openInvestModal(machineId) {
+        const m = cachedMachines.find(x => x.id === String(machineId));
+        if (!m) { toast('Machine introuvable'); return; }
+        currentProduct = m;
+        document.getElementById('investIcon').textContent        = m.icon;
+        document.getElementById('investProductName').textContent = m.name;
+        document.getElementById('investYield').innerHTML =
+            `Gain journalier: +${m.dailyYield}% (soit ${Math.round(m.price*m.dailyYield/100).toLocaleString('fr-FR')} XAF/jour)`;
+        document.getElementById('investAmount').value = m.price;
+        document.getElementById('investAmount').min   = m.price;
+        updateInvestPreview();
+        document.getElementById('investModal').classList.add('active');
+    }
+
+    function updateInvestPreview() {
+        if (!currentProduct) return;
+        const amt     = parseInt(document.getElementById('investAmount').value) || 0;
+        const daily   = Math.round(amt * currentProduct.dailyYield / 100);
+        document.getElementById('previewDaily').innerHTML   = '+' + daily.toLocaleString('fr-FR') + ' XAF';
+        document.getElementById('previewMonthly').innerHTML = '+' + (daily*30).toLocaleString('fr-FR') + ' XAF';
+    }
+
+    async function invest() {
+        if (!currentProduct) return;
+        const amount = parseInt(document.getElementById('investAmount').value);
+        if (amount < currentProduct.price) {
+            toast(`Montant minimum: ${currentProduct.price.toLocaleString('fr-FR')} XAF`);
+            return;
+        }
+        toast('Investissement en cours...');
+        const data = await callAPI('/invest', 'POST', { machineId: currentProduct.id, amount });
+        if (data.success) {
+            toast(`✅ ${amount.toLocaleString('fr-FR')} XAF investis dans ${currentProduct.name}`);
+            closeModal('investModal');
+            loadDashboard();
+        } else {
+            toast(data.message || 'Erreur lors de l\'investissement');
+        }
+    }
+
+    // ============================================================
+    // PAIEMENTS
+    // ============================================================
+    function updatePaymentInfo(type) {
+        const operator = document.getElementById(`${type}Operator`).value;
+        const infoDiv  = document.getElementById(`${type}PaymentInfo`);
+        if (infoDiv) infoDiv.innerHTML =
+            `💰 Paiement via ${operator.toUpperCase()} Mobile Money<br>📞 Confirmez sur votre téléphone`;
+    }
+
+    async function processDeposit() {
+        if (!currentUser) { toast('Veuillez vous connecter'); return; }
+        const amount   = parseInt(document.getElementById('depositAmount').value);
+        const phone    = document.getElementById('depositPhone').value.trim();
+        const operator = document.getElementById('depositOperator').value;
+        if (!amount || amount < 1000) { toast('Montant minimum: 1 000 XAF'); return; }
+        if (!phone || phone.length < 9) { toast('Numéro invalide (min 9 chiffres)'); return; }
+        toast('Traitement du dépôt...');
+        const data = await callAPI('/payment/deposit', 'POST', { amount, phone, operator });
+        if (data.success) {
+            toast(`✅ ${amount.toLocaleString('fr-FR')} XAF déposés !`);
+            closeModal('depositModal');
+            loadDashboard();
+        } else {
+            toast(data.message || 'Erreur lors du dépôt');
+        }
+    }
+
+    async function processWithdraw() {
+        if (!currentUser) { toast('Veuillez vous connecter'); return; }
+        const amount   = parseInt(document.getElementById('withdrawAmount').value);
+        const phone    = document.getElementById('withdrawPhone').value.trim();
+        const operator = document.getElementById('withdrawOperator').value;
+        if (!amount || amount < 1000) { toast('Montant minimum: 1 000 XAF'); return; }
+        if (!phone || phone.length < 9) { toast('Numéro invalide (min 9 chiffres)'); return; }
+        toast('Traitement du retrait...');
+        const data = await callAPI('/payment/withdraw', 'POST', { amount, phone, operator });
+        if (data.success) {
+            toast(`✅ ${(data.netAmount||0).toLocaleString('fr-FR')} XAF retirés (frais: ${(amount-(data.netAmount||0)).toLocaleString('fr-FR')} XAF)`);
+            closeModal('withdrawModal');
+            loadDashboard();
+        } else {
+            toast(data.message || 'Erreur lors du retrait');
+        }
+    }
+
+    // ============================================================
+    // PARRAINAGE
+    // ============================================================
+    async function loadReferral() {
+        if (!authToken) return;
+        try {
+            const data = await callAPI('/referral/stats');
+            if (data.success) {
+                document.getElementById('referralCode').innerText    = data.referralCode || '---';
+                document.getElementById('referralEarnings').innerText = (data.totalEarnings||0).toLocaleString('fr-FR');
+                document.getElementById('level1Count').innerText     = data.counts?.level1 || 0;
+                document.getElementById('level2Count').innerText     = data.counts?.level2 || 0;
+                document.getElementById('level3Count').innerText     = data.counts?.level3 || 0;
+                document.getElementById('totalRefCount').innerText   =
+                    (data.counts?.level1||0)+(data.counts?.level2||0)+(data.counts?.level3||0);
+
+                // Arbre des filleuls directs
+                const treeEl = document.getElementById('referralTree');
+                if (treeEl) {
+                    treeEl.innerHTML = data.directReferrals && data.directReferrals.length > 0
+                        ? data.directReferrals.map(r =>
+                            `<div style="padding:6px 0;border-bottom:1px solid var(--green-light);">
+                                👤 <strong>${r.name}</strong>
+                                <span style="font-size:11px;color:#888;"> — ${r.email}</span>
+                            </div>`).join('')
+                        : '<div style="text-align:center;padding:16px;color:#888;">Aucun filleul direct</div>';
+                }
+            }
+        } catch (err) { console.error('Referral error:', err); }
+    }
+
+    function copyReferralCode() {
+        const code = document.getElementById('referralCode').innerText;
+        navigator.clipboard.writeText(`🌿 Rejoignez NextEra ! Code: ${code} - Gains 20%/jour`);
+        toast('📋 Code copié !');
+    }
+
+    // ============================================================
+    // PROFIL
+    // ============================================================
+    function loadProfile() {
+        const user = currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+        const safe = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val||''; };
+        safe('profileName',  user.name);
+        safe('profileEmail', user.email);
+        safe('profilePhone', user.phone);
+        // Les stats sont rechargées via loadDashboard()
+        loadDashboard();
+    }
+
+    // ============================================================
+    // BONUS & GAINS
+    // ============================================================
+    async function claimDailyBonus() {
+        if (!authToken) return;
+        toast('Réclamation du bonus...');
+        const data = await callAPI('/bonus/claim', 'POST');
+        if (data.success) {
+            toast('🎉 +100 XAF de bonus journalier !');
+            document.getElementById('bonusStatus').innerHTML = '✅ Réclamé';
+            loadDashboard();
+        } else {
+            toast(data.message || 'Bonus déjà réclamé aujourd\'hui');
+        }
+    }
+
+    async function distributeAllGains() {
+        if (!authToken || !currentUser?.isAdmin) return;
+        toast('Distribution des gains...');
+        const data = await callAPI('/gains/distribute', 'POST');
+        if (data.success) {
+            toast(`✅ Gains distribués: +${(data.totalGain||0).toLocaleString('fr-FR')} XAF`);
+            loadDashboard();
+        } else {
+            toast('Erreur lors de la distribution');
+        }
+    }
+
+    // ============================================================
+    // ADMIN
+    // ============================================================
+    async function loadAdmin() {
+        if (!authToken || !currentUser?.isAdmin) return;
+        try {
+            // Utilisateurs
+            const data = await callAPI('/admin/users');
+            if (data.success) {
+                document.getElementById('aStatUsers').innerText   = data.stats?.totalUsers   || 0;
+                document.getElementById('aStatInvests').innerText = data.stats?.totalInvestments || 0;
+
+                document.getElementById('adminUsersList').innerHTML = (data.users || []).map(u => {
+                    const pf = (data.portfolios || []).find(p => p.userId === u.id) || {};
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--green-light);">
+                        <div>
+                            <strong>${u.name}</strong>
+                            <div style="font-size:12px;">${u.email}</div>
+                            <div class="badge">💰 ${(pf.balance||0).toLocaleString('fr-FR')} XAF</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline" onclick="openEditUser('${u.id}')">✏️</button>
+                    </div>`;
+                }).join('');
+            }
+
+            // Machines depuis l'API
+            const mData = await callAPI('/machines');
+            if (mData.success) {
+                cachedMachines = mData.machines.map(m => ({
+                    id: String(m.id), name: m.name, icon: m.icon||'⚡',
+                    price: parseInt(m.price), dailyYield: parseInt(m.daily_yield),
+                    desc: m.description||''
+                }));
+                document.getElementById('adminMachinesList').innerHTML = cachedMachines.map(m => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--green-light);">
+                        <div>
+                            <span style="font-size:20px;">${m.icon}</span> <strong>${m.name}</strong>
+                            <div style="font-size:12px;">💰 ${m.price.toLocaleString('fr-FR')} XAF | +${m.dailyYield}%/j</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline" onclick="openEditMachine('${m.id}')">✏️</button>
+                    </div>`).join('');
+            }
+        } catch (err) { console.error('Admin error:', err); }
+    }
+
+    function openEditUser(userId) {
+        document.getElementById('editUserId').value = userId;
+        document.getElementById('editUserBalance').value   = '';
+        document.getElementById('editUserInvested').value  = '';
+        document.getElementById('editUserModal').classList.add('active');
+    }
+
+    async function saveUserEdit() {
+        const userId      = document.getElementById('editUserId').value;
+        const balance     = parseInt(document.getElementById('editUserBalance').value);
+        const totalInvested = parseInt(document.getElementById('editUserInvested').value);
+        const body = {};
+        if (!isNaN(balance))      body.balance      = balance;
+        if (!isNaN(totalInvested)) body.totalInvested = totalInvested;
+        const data = await callAPI(`/admin/user/${userId}`, 'PUT', body);
+        if (data.success) {
+            toast('✅ Utilisateur mis à jour'); closeModal('editUserModal'); loadAdmin();
+        } else { toast(data.message || 'Erreur'); }
+    }
+
+    function openEditMachine(machineId) {
+        const m = cachedMachines.find(x => x.id === String(machineId));
+        if (!m) return;
+        document.getElementById('editMachineId').value    = m.id;
+        document.getElementById('editMachineName').value  = m.name;
+        document.getElementById('editMachinePrice').value = m.price;
+        document.getElementById('editMachineModal').classList.add('active');
+    }
+
+    async function saveMachineEdit() {
+        const id    = document.getElementById('editMachineId').value;
+        const name  = document.getElementById('editMachineName').value;
+        const price = parseInt(document.getElementById('editMachinePrice').value);
+        const data  = await callAPI(`/admin/machine/${id}`, 'PUT', { name, price });
+        if (data.success) {
+            toast('✅ Machine mise à jour');
+            closeModal('editMachineModal');
+            loadAdmin();
+            loadMarket();
+        } else { toast(data.message || 'Erreur'); }
+    }
+
+    function resetDB() {
+        if (!confirm('⚠️ Effacer la session locale ? (La BDD reste intacte)')) return;
+        localStorage.clear();
+        toast('Session effacée, rechargement...');
+        setTimeout(() => location.reload(), 1500);
+    }
+
+    // ============================================================
+    // UTILITAIRES
+    // ============================================================
+    function openModal(type) {
+        document.getElementById(`${type}Modal`).classList.add('active');
+        if (type === 'withdraw')
+            document.getElementById('withdrawFeeInfo').innerHTML = 'Frais de retrait : 1%';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+
+    function toast(msg) {
+        const el = document.createElement('div');
+        el.className = 'toast'; el.innerText = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+    }
+
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
+    });
+
+    // ============================================================
+    // INITIALISATION
+    // ============================================================
+    if (authToken) {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            showPage('dashboard');
+        } else {
+            showPage('auth'); showLoginForm();
+        }
+    } else {
+        showPage('auth'); showLoginForm();
+    }
+    </script>
+</body>
+</html>
