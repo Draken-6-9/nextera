@@ -13,11 +13,10 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'nextera_secret_2024_CHANGE_ME';
 
 // ============================================================
-// MIDDLEWARES GLOBAUX
+// MIDDLEWARES
 // ============================================================
 app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
 app.use(express.json());
-// Servir le frontend (dossier public/)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================================
@@ -25,9 +24,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================================================
 async function authMiddleware(req, res, next) {
     const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
+    if (!header || !header.startsWith('Bearer '))
         return res.status(401).json({ success: false, message: 'Non authentifié' });
-    }
     try {
         const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
         req.userId    = decoded.userId;
@@ -40,9 +38,8 @@ async function authMiddleware(req, res, next) {
 
 async function adminMiddleware(req, res, next) {
     const user = await db.getUserById(req.userId);
-    if (!user || !user.is_admin) {
+    if (!user || !user.is_admin)
         return res.status(403).json({ success: false, message: 'Accès refusé — Admin requis' });
-    }
     next();
 }
 
@@ -52,7 +49,6 @@ async function adminMiddleware(req, res, next) {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { name, email, phone, password, referralCode } = req.body;
-
         if (!name || !email || !phone || !password)
             return res.status(400).json({ success: false, message: 'Tous les champs sont requis' });
         if (password.length < 6)
@@ -130,18 +126,20 @@ app.get('/api/portfolio', authMiddleware, async (req, res) => {
 app.get('/api/investments', authMiddleware, async (req, res) => {
     try {
         const rows = await db.getUserInvestments(req.userId);
-        const investments = rows.map(inv => ({
-            id:                 inv.id,
-            machineId:          inv.machine_id,
-            name:               inv.machine_name,
-            icon:               inv.machine_icon || '⚡',
-            amount:             parseInt(inv.amount),
-            dailyYield:         parseInt(inv.daily_yield),
-            date:               inv.created_at,
-            totalGainsReceived: parseInt(inv.total_gains_received || 0),
-            status:             inv.status
-        }));
-        res.json({ success: true, investments });
+        res.json({
+            success: true,
+            investments: rows.map(inv => ({
+                id:                 inv.id,
+                machineId:          inv.machine_id,
+                name:               inv.machine_name,
+                icon:               inv.machine_icon || '⚡',
+                amount:             parseInt(inv.amount),
+                dailyYield:         parseInt(inv.daily_yield),
+                date:               inv.created_at,
+                totalGainsReceived: parseInt(inv.total_gains_received || 0),
+                status:             inv.status
+            }))
+        });
     } catch (err) {
         console.error('Investments error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
@@ -154,14 +152,16 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
             'SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
             [req.userId]
         );
-        const transactions = rows.map(tx => ({
-            ...tx,
-            amount:    parseInt(tx.amount),
-            fee:       parseInt(tx.fee || 0),
-            netAmount: parseInt(tx.net_amount || tx.amount),
-            createdAt: tx.created_at
-        }));
-        res.json({ success: true, transactions });
+        res.json({
+            success: true,
+            transactions: rows.map(tx => ({
+                ...tx,
+                amount:    parseInt(tx.amount),
+                fee:       parseInt(tx.fee || 0),
+                netAmount: parseInt(tx.net_amount || tx.amount),
+                createdAt: tx.created_at
+            }))
+        });
     } catch (err) {
         console.error('Transactions error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
@@ -169,12 +169,11 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
 });
 
 // ============================================================
-// MARCHÉ (Machines depuis la BDD)
+// MARCHÉ
 // ============================================================
 app.get('/api/machines', async (req, res) => {
     try {
-        const machines = await db.getMachines();
-        res.json({ success: true, machines });
+        res.json({ success: true, machines: await db.getMachines() });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
@@ -207,7 +206,6 @@ app.post('/api/invest', authMiddleware, async (req, res) => {
         await db.updateBalance(req.userId, numAmount, 'subtract');
         await db.query('UPDATE portfolios SET total_invested = total_invested + $1 WHERE user_id = $2', [numAmount, req.userId]);
 
-        // Commissions parrainage
         const user = await db.getUserById(req.userId);
         if (user?.referred_by) await processReferralCommissions(req.userId, numAmount);
 
@@ -227,27 +225,46 @@ app.post('/api/invest', authMiddleware, async (req, res) => {
 // PARRAINAGE PYRAMIDAL (10% / 5% / 3%)
 // ============================================================
 async function processReferralCommissions(investorId, amount) {
-    const levels = [{ percent: 10 }, { percent: 5 }, { percent: 3 }];
-    let currentId = (await db.getUserById(investorId))?.referred_by;
+    const levels = [
+        { level: 1, percent: 10 },
+        { level: 2, percent: 5  },
+        { level: 3, percent: 3  }
+    ];
+
+    // Partir du filleul et remonter la chaîne de parrainage
+    let investorUser = await db.getUserById(investorId);
+    let currentId    = investorUser?.referred_by;
 
     for (let i = 0; i < 3 && currentId; i++) {
-        const commission = Math.round(amount * levels[i].percent / 100);
+        const { level, percent } = levels[i];
+        const commission = Math.round(amount * percent / 100);
+
         if (commission > 0) {
+            // Créditer le parrain
             await db.updateBalance(currentId, commission);
-            await db.query('UPDATE portfolios SET referral_earnings = referral_earnings + $1 WHERE user_id = $2', [commission, currentId]);
+            // Mettre à jour le total des gains de parrainage
+            await db.query(
+                'UPDATE portfolios SET referral_earnings = referral_earnings + $1 WHERE user_id = $2',
+                [commission, currentId]
+            );
+            // Enregistrer la transaction visible dans l'historique du parrain
             await db.addTransaction(currentId, 'referral', commission, {
-                description: `Commission parrainage Niveau ${i + 1} (${levels[i].percent}%)`
+                description: `🎁 Commission parrainage Niveau ${level} (${percent}%) — investissement de ${amount.toLocaleString('fr-FR')} XAF`
             });
+
+            const parrain = await db.getUserById(currentId);
+            console.log(`[Parrainage] Niveau ${level} → ${parrain?.name || currentId} reçoit +${commission} XAF (${percent}% de ${amount} XAF)`);
         }
-        currentId = (await db.getUserById(currentId))?.referred_by;
+
+        // Remonter au niveau supérieur
+        const parentUser = await db.getUserById(currentId);
+        currentId = parentUser?.referred_by || null;
     }
 }
 
 // ============================================================
-// PAIEMENTS — Dépôt (simulation + stubs MTN / Orange)
+// PAIEMENTS — DÉPÔT
 // ============================================================
-
-// Helper commun
 async function processDeposit(req, res, operator) {
     try {
         const { amount, phone } = req.body;
@@ -269,76 +286,42 @@ async function processDeposit(req, res, operator) {
     }
 }
 
-// Route générique
-app.post('/api/payment/deposit', authMiddleware, (req, res) => processDeposit(req, res, req.body.operator || 'mtn'));
+app.post('/api/payment/deposit',        authMiddleware, (req, res) => processDeposit(req, res, req.body.operator || 'mtn'));
+app.post('/api/payment/mtn/deposit',    authMiddleware, (req, res) => processDeposit(req, res, 'mtn'));
+app.post('/api/payment/orange/deposit', authMiddleware, (req, res) => processDeposit(req, res, 'orange'));
 
-// Route MTN — stub prêt pour l'intégration réelle
-app.post('/api/payment/mtn/deposit', authMiddleware, async (req, res) => {
-    /*
-    ══════════════════════════════════════════════════════════════
-    INTÉGRATION MTN MOMO — À compléter avec vos vraies clés API
-    ══════════════════════════════════════════════════════════════
-    Variables .env nécessaires :
-        MTN_BASE_URL=https://sandbox.momodeveloper.mtn.com
-        MTN_PRIMARY_KEY=<votre primary key>
-        MTN_API_USER=<votre api user UUID>
-        MTN_API_KEY=<votre api key>
-        MTN_TARGET_ENV=sandbox   (changer en "mtnci" ou "mtncm" en prod)
-        MTN_CURRENCY=XAF
-
-    Flux :
-        1. Obtenir un token Bearer via /collection/token/
-        2. POST /collection/v1_0/requesttopay avec le montant et le téléphone
-        3. Écouter le webhook ou poller /collection/v1_0/requesttopay/{referenceId}
-        4. Quand status == SUCCESSFUL → appeler updateBalance() ici
-
-    Exemple d'implémentation disponible sur :
-        https://momodeveloper.mtn.com/docs/services/collection
-    ══════════════════════════════════════════════════════════════
-    */
-    return processDeposit(req, res, 'mtn');
-});
-
-// Route Orange Money — stub prêt pour l'intégration réelle
-app.post('/api/payment/orange/deposit', authMiddleware, async (req, res) => {
-    /*
-    ══════════════════════════════════════════════════════════════
-    INTÉGRATION ORANGE MONEY — À compléter avec vos vraies clés
-    ══════════════════════════════════════════════════════════════
-    Variables .env nécessaires :
-        ORANGE_BASE_URL=https://api.orange.com/orange-money-webpay/cm/v1
-        ORANGE_CLIENT_ID=<votre client id>
-        ORANGE_CLIENT_SECRET=<votre client secret>
-        ORANGE_MERCHANT_KEY=<votre merchant key>
-
-    Flux :
-        1. POST /oauth/v3/token → obtenir access_token
-        2. POST /webpayment → créer la transaction, récupérer pay_token et payment_url
-        3. Rediriger l'utilisateur vers payment_url
-        4. Orange rappelle votre callback → vérifier et appeler updateBalance()
-
-    Exemple d'implémentation :
-        https://developer.orange.com/apis/orange-money-webpay-cm
-    ══════════════════════════════════════════════════════════════
-    */
-    return processDeposit(req, res, 'orange');
-});
-
-// Retrait
+// ============================================================
+// PAIEMENTS — RETRAIT (1 par jour, minimum 1500 XAF, frais 1%)
+// ============================================================
 app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
     try {
         const { amount, phone, operator } = req.body;
         const numAmount = parseInt(amount);
-        if (!numAmount || numAmount < 1000)
-            return res.status(400).json({ success: false, message: 'Montant minimum: 1 000 XAF' });
+
+        // Minimum 1500 XAF
+        if (!numAmount || numAmount < 1500)
+            return res.status(400).json({ success: false, message: 'Montant minimum de retrait : 1 500 XAF' });
+
         if (!phone || String(phone).replace(/\s/g,'').length < 9)
             return res.status(400).json({ success: false, message: 'Numéro Mobile Money invalide' });
+
+        // ── LIMITE : 1 SEUL RETRAIT PAR JOUR ──────────────────
+        const alreadyWithdrawn = await db.query(
+            `SELECT id FROM transactions
+             WHERE user_id = $1
+               AND type = 'withdrawal'
+               AND created_at::date = CURRENT_DATE`,
+            [req.userId]
+        );
+        if (alreadyWithdrawn.length > 0)
+            return res.status(400).json({ success: false, message: '⛔ Un seul retrait autorisé par jour. Revenez demain.' });
+        // ──────────────────────────────────────────────────────
 
         const portfolio = await db.getPortfolio(req.userId);
         if (!portfolio || parseInt(portfolio.balance) < numAmount)
             return res.status(400).json({ success: false, message: 'Solde insuffisant' });
 
-        const fee       = Math.round(numAmount * 0.01);
+        const fee       = Math.round(numAmount * 0.01);  // 1% de frais
         const netAmount = numAmount - fee;
 
         await db.updateBalance(req.userId, numAmount, 'subtract');
@@ -346,10 +329,12 @@ app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
             fee, netAmount, operator: operator || 'mtn', phone,
             description: `Retrait via ${(operator || 'mtn').toUpperCase()} Money`
         });
+
         res.json({
             success: true,
             message: `✅ ${netAmount.toLocaleString('fr-FR')} XAF envoyés (frais: ${fee} XAF)`,
-            netAmount, fee, newBalance: parseInt(portfolio.balance) - numAmount
+            netAmount, fee,
+            newBalance: parseInt(portfolio.balance) - numAmount
         });
     } catch (err) {
         console.error('Withdraw error:', err);
@@ -358,12 +343,12 @@ app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
 });
 
 // ============================================================
-// BONUS & GAINS
+// BONUS JOURNALIER (manuel, 1 fois/jour)
 // ============================================================
 app.post('/api/bonus/claim', authMiddleware, async (req, res) => {
     try {
         if (await db.hasClaimedBonusToday(req.userId))
-            return res.status(400).json({ success: false, message: 'Bonus déjà réclamé aujourd\'hui' });
+            return res.status(400).json({ success: false, message: 'Bonus déjà réclamé aujourd\'hui. Revenez demain !' });
         await db.claimBonus(req.userId, 100);
         const p = await db.getPortfolio(req.userId);
         res.json({ success: true, message: '🎉 +100 XAF de bonus journalier !', newBalance: parseInt(p.balance) });
@@ -373,6 +358,9 @@ app.post('/api/bonus/claim', authMiddleware, async (req, res) => {
     }
 });
 
+// ============================================================
+// GAINS JOURNALIERS — distribution manuelle (admin/debug)
+// ============================================================
 app.post('/api/gains/distribute', authMiddleware, async (req, res) => {
     try {
         const totalGain = await db.applyDailyGains(req.userId);
@@ -394,17 +382,15 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
 
         const level1 = await db.query('SELECT id, name, email FROM users WHERE referred_by = $1', [req.userId]);
         const l1Ids  = level1.map(u => u.id);
-
         let level2 = [];
         if (l1Ids.length > 0) {
-            const ph = l1Ids.map((_, i) => `$${i + 1}`).join(',');
+            const ph = l1Ids.map((_, i) => `$${i+1}`).join(',');
             level2 = await db.query(`SELECT id, name FROM users WHERE referred_by IN (${ph})`, l1Ids);
         }
         const l2Ids = level2.map(u => u.id);
-
         let level3 = [];
         if (l2Ids.length > 0) {
-            const ph = l2Ids.map((_, i) => `$${i + 1}`).join(',');
+            const ph = l2Ids.map((_, i) => `$${i+1}`).join(',');
             level3 = await db.query(`SELECT id, name FROM users WHERE referred_by IN (${ph})`, l2Ids);
         }
 
@@ -430,21 +416,22 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
         const portfolios = await db.query('SELECT user_id, balance, total_invested, referral_earnings, total_gains FROM portfolios');
         const stats      = await db.query(`
             SELECT
-                (SELECT COUNT(*) FROM users)::int                      AS "totalUsers",
+                (SELECT COUNT(*) FROM users)::int                           AS "totalUsers",
                 (SELECT COUNT(*) FROM investments WHERE status='active')::int AS "totalInvestments",
-                (SELECT COUNT(*) FROM transactions)::int               AS "totalTransactions",
-                (SELECT COALESCE(SUM(balance),0) FROM portfolios)::bigint AS "totalBalance"
+                (SELECT COUNT(*) FROM transactions)::int                    AS "totalTransactions",
+                (SELECT COALESCE(SUM(balance),0) FROM portfolios)::bigint   AS "totalBalance"
         `);
-
-        const normalizedPortfolios = portfolios.map(p => ({
-            userId:           p.user_id,
-            balance:          parseInt(p.balance || 0),
-            totalInvested:    parseInt(p.total_invested || 0),
-            referralEarnings: parseInt(p.referral_earnings || 0),
-            totalGains:       parseInt(p.total_gains || 0)
-        }));
-
-        res.json({ success: true, users, portfolios: normalizedPortfolios, stats: stats[0] });
+        res.json({
+            success: true, users,
+            portfolios: portfolios.map(p => ({
+                userId:           p.user_id,
+                balance:          parseInt(p.balance || 0),
+                totalInvested:    parseInt(p.total_invested || 0),
+                referralEarnings: parseInt(p.referral_earnings || 0),
+                totalGains:       parseInt(p.total_gains || 0)
+            })),
+            stats: stats[0]
+        });
     } catch (err) {
         console.error('Admin users error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
@@ -455,7 +442,7 @@ app.put('/api/admin/user/:userId', authMiddleware, adminMiddleware, async (req, 
     try {
         const { userId } = req.params;
         const { balance, totalInvested } = req.body;
-        if (balance      !== undefined) await db.query('UPDATE portfolios SET balance = $1 WHERE user_id = $2', [balance, userId]);
+        if (balance       !== undefined) await db.query('UPDATE portfolios SET balance = $1 WHERE user_id = $2',       [balance, userId]);
         if (totalInvested !== undefined) await db.query('UPDATE portfolios SET total_invested = $1 WHERE user_id = $2', [totalInvested, userId]);
         res.json({ success: true, message: 'Utilisateur mis à jour' });
     } catch (err) {
@@ -479,7 +466,7 @@ app.put('/api/admin/machine/:machineId', authMiddleware, adminMiddleware, async 
 });
 
 // ============================================================
-// HEALTH CHECK
+// HEALTH CHECK (sert aussi de cible au keepalive interne)
 // ============================================================
 app.get('/api/health', async (req, res) => {
     try {
@@ -490,15 +477,100 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// ============================================================
-// SPA FALLBACK — toutes les routes non-API → index.html
-// ============================================================
+// SPA fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ============================================================
-// DÉMARRAGE
+// CRON INTERNE — TÂCHES AUTOMATIQUES
+// ============================================================
+
+// ── 1. KEEPALIVE anti-sleep Render ───────────────────────────
+// Render endort les services gratuits après 15 min d'inactivité.
+// Ce cron auto-ping toutes les 14 min pour maintenir l'éveil 24h/24.
+function startKeepalive() {
+    const SELF_URL = process.env.RENDER_EXTERNAL_URL
+        ? `${process.env.RENDER_EXTERNAL_URL}/api/health`
+        : `http://localhost:${PORT}/api/health`;
+
+    setInterval(async () => {
+        try {
+            const http = SELF_URL.startsWith('https') ? require('https') : require('http');
+            http.get(SELF_URL, (res) => {
+                console.log(`[Keepalive] Ping → ${res.statusCode} — ${new Date().toLocaleTimeString('fr-FR')}`);
+            }).on('error', (e) => {
+                console.warn('[Keepalive] Ping failed:', e.message);
+            });
+        } catch (e) {
+            console.warn('[Keepalive] Error:', e.message);
+        }
+    }, 14 * 60 * 1000); // toutes les 14 minutes
+
+    console.log('✅ [Keepalive] Démarré — ping toutes les 14 minutes');
+}
+
+// ── 2. DISTRIBUTION AUTOMATIQUE DES GAINS JOURNALIERS ────────
+// Tous les jours à minuit UTC : crédite les gains de chaque
+// investissement actif sur le compte de l'utilisateur.
+function startDailyGainsCron() {
+    async function distributeAllUsersGains() {
+        console.log('[Gains CRON] ⏰ Distribution journalière démarrée...');
+        try {
+            const users = await db.query("SELECT DISTINCT user_id FROM investments WHERE status = 'active'");
+            let totalUsers = 0;
+            let totalXAF   = 0;
+
+            for (const row of users) {
+                try {
+                    const gain = await db.applyDailyGains(row.user_id);
+                    if (gain > 0) { totalUsers++; totalXAF += gain; }
+                } catch (e) {
+                    console.error(`[Gains CRON] Erreur user ${row.user_id}:`, e.message);
+                }
+            }
+
+            console.log(`[Gains CRON] ✅ Terminé — ${totalUsers} utilisateurs crédités, +${totalXAF.toLocaleString('fr-FR')} XAF total`);
+        } catch (e) {
+            console.error('[Gains CRON] Erreur globale:', e.message);
+        }
+    }
+
+    // Calculer le délai jusqu'au prochain minuit UTC
+    function msUntilMidnightUTC() {
+        const now       = new Date();
+        const midnight  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 30));
+        return midnight - now;
+    }
+
+    // Premier lancement à minuit UTC, puis toutes les 24h
+    const delay = msUntilMidnightUTC();
+    console.log(`✅ [Gains CRON] Prochaine distribution dans ${Math.round(delay/1000/60)} minutes (minuit UTC)`);
+
+    setTimeout(() => {
+        distributeAllUsersGains();           // premier fire à minuit UTC
+        setInterval(distributeAllUsersGains, 24 * 60 * 60 * 1000); // puis chaque 24h
+    }, delay);
+}
+
+// ── 3. NETTOYAGE DES ANCIENS LOGS (optionnel) ─────────────────
+// Supprime les transactions de plus de 1 an pour garder la BDD légère
+function startCleanupCron() {
+    setInterval(async () => {
+        try {
+            const result = await db.query(
+                "DELETE FROM transactions WHERE created_at < NOW() - INTERVAL '365 days'"
+            );
+            if (result.length > 0 || result.rowCount > 0)
+                console.log('[Cleanup CRON] Vieilles transactions supprimées');
+        } catch (e) {
+            // Silencieux — pas critique
+        }
+    }, 24 * 60 * 60 * 1000); // chaque 24h
+}
+
+// ============================================================
+// COMPTES PAR DÉFAUT
 // ============================================================
 async function createDefaultAccounts() {
     const admin = await db.getUserByEmail('admin@nextera.com');
@@ -506,48 +578,56 @@ async function createDefaultAccounts() {
         const id = 'user_admin';
         const hash = await bcrypt.hash('admin123', 10);
         await db.query(
-            'INSERT INTO users (id, name, email, phone, password, is_admin, referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
-            [id, 'Administrateur', 'admin@nextera.com', '699999999', hash, true, 'NEXT-ADMIN001']
+            'INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
+            [id,'Administrateur','admin@nextera.com','699999999',hash,true,'NEXT-ADMIN001']
         );
         await db.query(
-            'INSERT INTO portfolios (user_id, balance, total_invested, referral_earnings, total_gains) VALUES ($1, 500000, 0, 0, 0) ON CONFLICT (user_id) DO NOTHING',
+            'INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,500000,0,0,0) ON CONFLICT (user_id) DO NOTHING',
             [id]
         );
         console.log('✅ Compte admin créé: admin@nextera.com / admin123');
     }
-
     const test = await db.getUserByEmail('test@nextera.com');
     if (!test) {
         const id = 'user_test';
         const hash = await bcrypt.hash('test123', 10);
         await db.query(
-            'INSERT INTO users (id, name, email, phone, password, is_admin, referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
-            [id, 'Jean Dupont', 'test@nextera.com', '690000000', hash, false, 'NEXT-TEST001']
+            'INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
+            [id,'Jean Dupont','test@nextera.com','690000000',hash,false,'NEXT-TEST001']
         );
         await db.query(
-            'INSERT INTO portfolios (user_id, balance, total_invested, referral_earnings, total_gains) VALUES ($1, 25000, 0, 0, 0) ON CONFLICT (user_id) DO NOTHING',
+            'INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,25000,0,0,0) ON CONFLICT (user_id) DO NOTHING',
             [id]
         );
         console.log('✅ Compte test créé: test@nextera.com / test123');
     }
 }
 
+// ============================================================
+// DÉMARRAGE
+// ============================================================
 app.listen(PORT, async () => {
     const connected = await db.testConnection();
     if (!connected) {
-        console.error('❌ Impossible de se connecter à PostgreSQL. Vérifiez DATABASE_URL.');
+        console.error('❌ Impossible de se connecter à PostgreSQL.');
         process.exit(1);
     }
 
-    // Initialiser les tables et données
     await db.initTables();
     await createDefaultAccounts();
 
+    // Lancer les crons
+    startKeepalive();
+    startDailyGainsCron();
+    startCleanupCron();
+
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║  🌿 NextEra — Serveur démarré sur le port ${String(PORT).padEnd(28)}║
-║  📊 Health : /api/health                                     ║
-║  🔑 Admin  : admin@nextera.com / admin123                    ║
-║  🧪 Test   : test@nextera.com  / test123                     ║
+║  🌿 NextEra — Démarré sur le port ${String(PORT).padEnd(27)}║
+║  📊 Health   : /api/health                                   ║
+║  🔑 Admin    : admin@nextera.com / admin123                  ║
+║  🧪 Test     : test@nextera.com  / test123                   ║
+║  ⏰ Gains    : distribution automatique chaque nuit (minuit) ║
+║  💓 Keepalive: ping toutes les 14 min (anti-sleep Render)    ║
 ╚══════════════════════════════════════════════════════════════╝`);
 });
