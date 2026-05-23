@@ -656,9 +656,9 @@
         </div>
 
         <div class="action-grid">
-            <div class="action-card" onclick="window.open('https://whatsapp.com/channel:0029Vb8FQrTHLHQd1EgpYD1E', '_blank')">
+            <div class="action-card" onclick="window.open('https://whatsapp.com/channel/0029Vb8FQrTHLHQd1EgpYD1E', '_blank')">
                 <div class="action-emoji">📢</div>
-                <div class="action-title">Chaine support whatsapp</div>
+                <div class="action-title">Chaine d'assistance whatsapp/div>
                 <div class="action-sub">Actualités & Annonces</div>
             </div>
             <div class="action-card" onclick="window.open('https://chat.whatsapp.com/DcJxYBiSGUa0l3wUloIcGU?mode=gi_t', '_blank')">
@@ -747,7 +747,8 @@
                 <div style="font-size:28px;font-weight:800;letter-spacing:3px;color:var(--green-dark);"
                     id="referralCode">---</div>
             </div>
-            <button class="btn" onclick="copyReferralCode()">📋 Copier le lien</button>
+            <div id="referralLinkDisplay" style="font-size:11px;color:var(--text2);word-break:break-all;margin-top:6px;padding:6px;background:var(--card-bg);border-radius:8px;display:none;"></div>
+            <button class="btn" onclick="copyReferralCode()">📋 Copier mon lien de parrainage</button>
         </div>
 
         <div class="card">
@@ -1320,8 +1321,15 @@
         try {
             const data = await callAPI('/referral/stats');
             if (data.success) {
-                document.getElementById('referralCode').innerText    = data.referralCode || '---';
+                const code = data.referralCode || '---';
+                document.getElementById('referralCode').innerText     = code;
                 document.getElementById('referralEarnings').innerText = (data.totalEarnings||0).toLocaleString('fr-FR');
+                // Afficher le lien complet sous le code
+                const linkEl = document.getElementById('referralLinkDisplay');
+                if (linkEl && code !== '---') {
+                    linkEl.style.display = 'block';
+                    linkEl.innerHTML = '🔗 ' + window.location.origin + '?ref=' + code;
+                }
                 document.getElementById('level1Count').innerText     = data.counts?.level1 || 0;
                 document.getElementById('level2Count').innerText     = data.counts?.level2 || 0;
                 document.getElementById('level3Count').innerText     = data.counts?.level3 || 0;
@@ -1345,8 +1353,17 @@
 
     function copyReferralCode() {
         const code = document.getElementById('referralCode').innerText;
-        navigator.clipboard.writeText(`🌿 Rejoignez NextEra ! Code: ${code} - Gains 20%/jour`);
-        toast('📋 Code copié !');
+        if (!code || code === '---') { toast('Code non disponible'); return; }
+        const link = `${window.location.origin}?ref=${code}`;
+        navigator.clipboard.writeText(link)
+            .then(() => toast('📋 Lien copié ! Partagez-le à vos filleuls'))
+            .catch(() => {
+                const el = document.createElement('textarea');
+                el.value = link; document.body.appendChild(el);
+                el.select(); document.execCommand('copy');
+                document.body.removeChild(el);
+                toast('📋 Lien copié !');
+            });
     }
 
     // ============================================================
@@ -1511,6 +1528,19 @@
     // ============================================================
     // INITIALISATION
     // ============================================================
+
+    // Pré-remplir le code de parrainage depuis l'URL (?ref=NEXT-XXXX)
+    (function prefillReferral() {
+        const params = new URLSearchParams(window.location.search);
+        const ref    = params.get('ref');
+        if (ref) {
+            const el = document.getElementById('regReferral');
+            if (el) el.value = ref;
+            // Afficher le formulaire d'inscription directement
+            showRegisterForm();
+        }
+    })();
+
     if (authToken) {
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
