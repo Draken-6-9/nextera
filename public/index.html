@@ -656,12 +656,12 @@
         </div>
 
         <div class="action-grid">
-            <div class="action-card" onclick="window.open('https://t.me/nextera_official', '_blank')">
+            <div class="action-card" onclick="window.open('https://whatsapp.com/channel:0029Vb8FQrTHLHQd1EgpYD1E', '_blank')">
                 <div class="action-emoji">📢</div>
-                <div class="action-title">Canal Telegram</div>
+                <div class="action-title">Chaine support whatsapp</div>
                 <div class="action-sub">Actualités & Annonces</div>
             </div>
-            <div class="action-card" onclick="window.open('https://chat.whatsapp.com/nextera', '_blank')">
+            <div class="action-card" onclick="window.open('https://chat.whatsapp.com/DcJxYBiSGUa0l3wUloIcGU?mode=gi_t', '_blank')">
                 <div class="action-emoji">💬</div>
                 <div class="action-title">Groupe WhatsApp</div>
                 <div class="action-sub">Entraide & Support</div>
@@ -894,8 +894,8 @@
             <input type="number" id="depositAmount" placeholder="1000" min="1000">
             <label>Opérateur Mobile Money</label>
             <select id="depositOperator" onchange="updatePaymentInfo('deposit')">
-                <option value="mtn">📱 MTN Mobile Money</option>
-                <option value="orange">🟠 Orange Money</option>
+                <option value="mtn"> MTN Mobile Money</option>
+                <option value="orange"> Orange Money</option>
             </select>
             <label>Numéro Mobile Money</label>
             <input type="tel" id="depositPhone" placeholder="6XXXXXXXX">
@@ -911,11 +911,11 @@
             <div class="modal-handle"></div>
             <div class="text-center mb2"><strong style="font-size:18px;">💰 Retirer des fonds</strong></div>
             <label>Montant (XAF)</label>
-            <input type="number" id="withdrawAmount" placeholder="1000" min="1000">
+            <input type="number" id="withdrawAmount" placeholder="1500" min="1500">
             <label>Opérateur Mobile Money</label>
             <select id="withdrawOperator">
-                <option value="mtn">📱 MTN Mobile Money</option>
-                <option value="orange">🟠 Orange Money</option>
+                <option value="mtn"> MTN Mobile Money</option>
+                <option value="orange"> Orange Money</option>
             </select>
             <label>Numéro Mobile Money</label>
             <input type="tel" id="withdrawPhone" placeholder="6XXXXXXXX">
@@ -1299,7 +1299,7 @@
         const amount   = parseInt(document.getElementById('withdrawAmount').value);
         const phone    = document.getElementById('withdrawPhone').value.trim();
         const operator = document.getElementById('withdrawOperator').value;
-        if (!amount || amount < 1000) { toast('Montant minimum: 1 000 XAF'); return; }
+        if (!amount || amount < 1500) { toast('Montant minimum de retrait : 1 500 XAF'); return; }
         if (!phone || phone.length < 9) { toast('Numéro invalide (min 9 chiffres)'); return; }
         toast('Traitement du retrait...');
         const data = await callAPI('/payment/withdraw', 'POST', { amount, phone, operator });
@@ -1490,7 +1490,7 @@
     function openModal(type) {
         document.getElementById(`${type}Modal`).classList.add('active');
         if (type === 'withdraw')
-            document.getElementById('withdrawFeeInfo').innerHTML = 'Frais de retrait : 1%';
+            document.getElementById('withdrawFeeInfo').innerHTML = '⚠️ Minimum 1 500 XAF · 1 retrait/jour · Frais 1%';
     }
 
     function closeModal(modalId) {
