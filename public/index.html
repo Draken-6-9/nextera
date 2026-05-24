@@ -1282,7 +1282,7 @@
         const amount   = parseInt(document.getElementById('depositAmount').value);
         const phone    = document.getElementById('depositPhone').value.trim();
         const operator = document.getElementById('depositOperator').value;
-        if (!amount || amount < 1) { toast('Montant minimum: 1  XAF'); return; }
+        if (!amount || amount < 1000) { toast('Montant minimum: 1000  XAF'); return; }
         if (!phone || phone.length < 9) { toast('Numéro invalide (min 9 chiffres)'); return; }
         toast('Traitement du dépôt...');
         const data = await callAPI('/payment/deposit', 'POST', { amount, phone, operator });
