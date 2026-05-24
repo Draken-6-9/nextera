@@ -92,6 +92,34 @@ async function adminMiddleware(req, res, next) {
 //
 // ══════════════════════════════════════════════════════════════
 
+// ================================================================
+// HELPER FETCH AVEC TIMEOUT
+// ================================================================
+// Sans timeout, si MTN/Orange ne répond pas, Express attend indéfiniment
+// et le frontend reçoit "erreur de connexion" sans explication.
+// Ce helper coupe la connexion après 15 secondes et logue l'erreur.
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+        controller.abort();
+        console.error(`[HTTP] Timeout après ${timeoutMs}ms → ${url}`);
+    }, timeoutMs);
+
+    try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timer);
+        return res;
+    } catch (err) {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') {
+            throw new Error(`Timeout (${timeoutMs}ms) — ${url} ne répond pas. Vérifier que l'URL est correcte et que Render a accès à internet.`);
+        }
+        // Logguer l'erreur réseau brute pour diagnostic dans les logs Render
+        console.error(`[HTTP] Erreur réseau vers ${url} :`, err.message);
+        throw new Error(`Erreur réseau : ${err.message}`);
+    }
+}
+
 // ── Vérifie si MTN est configuré (sinon → mode simulation) ──
 function mtnIsConfigured() {
     const k = (process.env.MTN_PRIMARY_KEY || '').trim();
@@ -109,7 +137,7 @@ async function getMtnToken() {
         `${process.env.MTN_API_USER}:${process.env.MTN_API_KEY}`
     ).toString('base64');
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
         `${process.env.MTN_BASE_URL}/collection/token/`,
         {
             method: 'POST',
@@ -136,7 +164,7 @@ async function mtnRequestToPay({ amount, phone, referenceId, userId }) {
     const clean = phone.replace(/[\s\-\(\)\+]/g, '');
     const msisdn = clean.startsWith('237') ? clean : `237${clean.replace(/^0/, '')}`;
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
         `${process.env.MTN_BASE_URL}/collection/v1_0/requesttopay`,
         {
             method: 'POST',
@@ -173,7 +201,7 @@ async function mtnRequestToPay({ amount, phone, referenceId, userId }) {
 // Statuts : "SUCCESSFUL", "FAILED", "PENDING"
 async function mtnCheckStatus(referenceId) {
     const token = await getMtnToken();
-    const res = await fetch(
+    const res = await fetchWithTimeout(
         `${process.env.MTN_BASE_URL}/collection/v1_0/requesttopay/${referenceId}`,
         {
             headers: {
@@ -237,7 +265,7 @@ async function getOrangeToken() {
         `${process.env.ORANGE_CLIENT_ID}:${process.env.ORANGE_CLIENT_SECRET}`
     ).toString('base64');
 
-    const res = await fetch('https://api.orange.com/oauth/v3/token', {
+    const res = await fetchWithTimeout('https://api.orange.com/oauth/v3/token', {
         method: 'POST',
         headers: {
             // Authorization : Basic <base64(clientId:clientSecret)>
@@ -262,7 +290,7 @@ async function orangeCreatePayment({ amount, phone, orderId, userId }) {
     const clean = phone.replace(/[\s\-\(\)\+]/g, '');
     const msisdn = clean.startsWith('237') ? clean : `237${clean.replace(/^0/, '')}`;
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
         `${process.env.ORANGE_BASE_URL || 'https://api.orange.com/orange-money-webpay/cm/v1'}/webpayment`,
         {
             method: 'POST',
@@ -543,8 +571,11 @@ app.post('/api/payment/mtn/deposit', authMiddleware, async (req, res) => {
         );
 
         // 2. Appeler MTN → notification push envoyée sur le téléphone
+        console.log(`[MTN] Tentative dépôt — ref:${referenceId} user:${req.userId} ${numAmount} XAF tel:${phone}`);
+        console.log(`[MTN] URL API : ${process.env.MTN_BASE_URL}`);
+        console.log(`[MTN] Target env : ${process.env.MTN_TARGET_ENV}`);
         await mtnRequestToPay({ amount: numAmount, phone, referenceId, userId: req.userId });
-        console.log(`[MTN] Dépôt initié — ref:${referenceId} user:${req.userId} ${numAmount} XAF`);
+        console.log(`[MTN] ✅ Dépôt initié avec succès — ref:${referenceId}`);
 
         // 3. Répondre immédiatement — le crédit se fait via le webhook ci-dessous
         res.json({
@@ -553,8 +584,15 @@ app.post('/api/payment/mtn/deposit', authMiddleware, async (req, res) => {
         });
         // ────────────────────────────────────────────────────────
     } catch (err) {
-        console.error('[MTN] Deposit error:', err);
-        res.status(500).json({ success: false, message: `Erreur MTN: ${err.message}` });
+        console.error('[MTN] Deposit error:', err.message);
+        // Message d'erreur lisible pour l'utilisateur
+        let userMessage = 'Erreur lors du paiement MTN.';
+        if (err.message.includes('Timeout'))     userMessage = 'Le serveur MTN ne répond pas. Réessaie dans quelques secondes.';
+        if (err.message.includes('réseau'))      userMessage = 'Erreur réseau vers MTN. Vérifie ta connexion.';
+        if (err.message.includes('401'))         userMessage = 'Clés MTN invalides. Vérifie MTN_API_USER et MTN_API_KEY dans Render.';
+        if (err.message.includes('403'))         userMessage = 'Accès refusé MTN. Vérifie MTN_PRIMARY_KEY dans Render.';
+        if (err.message.includes('409'))         userMessage = 'Transaction MTN déjà en cours. Attends quelques secondes et réessaie.';
+        res.status(500).json({ success: false, message: userMessage, debug: err.message });
     }
 });
 
@@ -688,6 +726,41 @@ app.post('/api/payment/orange/deposit', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('[Orange] Deposit error:', err);
         res.status(500).json({ success: false, message: `Erreur Orange: ${err.message}` });
+    }
+});
+
+// ================================================================
+// ROUTE DIAGNOSTIC MTN — teste la connexion sans faire de vrai paiement
+// ================================================================
+// Appelle cette URL depuis ton navigateur pour diagnostiquer :
+// https://TON-SERVICE.onrender.com/api/payment/mtn/ping
+// Elle tente juste d'obtenir un token MTN et affiche le résultat.
+app.get('/api/payment/mtn/ping', authMiddleware, async (req, res) => {
+    const result = {
+        configured:  mtnIsConfigured(),
+        base_url:    process.env.MTN_BASE_URL    || 'NON DÉFINI',
+        target_env:  process.env.MTN_TARGET_ENV  || 'NON DÉFINI',
+        primary_key: process.env.MTN_PRIMARY_KEY ? `...${process.env.MTN_PRIMARY_KEY.slice(-4)}` : 'NON DÉFINI',
+        api_user:    process.env.MTN_API_USER    ? `...${process.env.MTN_API_USER.slice(-6)}`    : 'NON DÉFINI',
+        api_key:     process.env.MTN_API_KEY     ? `...${process.env.MTN_API_KEY.slice(-4)}`     : 'NON DÉFINI',
+        token_test:  null,
+        error:       null
+    };
+
+    if (!mtnIsConfigured()) {
+        return res.json({ success: false, ...result, error: 'Clés MTN non configurées dans Render' });
+    }
+
+    try {
+        console.log('[MTN Ping] Test de connexion vers', result.base_url);
+        const token = await getMtnToken();
+        result.token_test = token ? `OK (${token.length} chars)` : 'VIDE';
+        console.log('[MTN Ping] ✅ Token obtenu avec succès');
+        res.json({ success: true, ...result, message: '✅ Connexion MTN OK — les clés fonctionnent' });
+    } catch (err) {
+        result.error = err.message;
+        console.error('[MTN Ping] ❌ Erreur:', err.message);
+        res.json({ success: false, ...result, message: '❌ Échec connexion MTN — voir error ci-dessous' });
     }
 });
 
