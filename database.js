@@ -287,6 +287,20 @@ async function initTables() {
         console.log('✅ Machines par défaut insérées');
     }
 
+    // Table pending_payments — paiements en attente de confirmation Campay
+    // Empêche le double crédit si le webhook arrive deux fois
+    await query(`
+        CREATE TABLE IF NOT EXISTS pending_payments (
+            reference_id VARCHAR(100) PRIMARY KEY,
+            user_id      VARCHAR(60)  NOT NULL,
+            amount       BIGINT       NOT NULL,
+            operator     VARCHAR(20)  DEFAULT 'campay',
+            paid         BOOLEAN      DEFAULT FALSE,
+            paid_at      TIMESTAMP,
+            created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     console.log('✅ Toutes les tables sont prêtes (PostgreSQL)');
 }
 
