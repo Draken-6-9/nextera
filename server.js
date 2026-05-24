@@ -1,14 +1,10 @@
 // ================================================================
 // server.js — NextEra Backend (PostgreSQL / Render)
 // ================================================================
-//
 // FICHIERS MODIFIÉS DANS CETTE VERSION :
-//   ✅ server.js   ← CE FICHIER (paiements Campay + bonus inscription)
-//   ✅ .env.example ← Clés API Campay à renseigner
-//
-// PAIEMENTS : Campay gère MTN MoMo ET Orange Money en même temps.
-//   → Une seule intégration, deux opérateurs couverts.
-//   → Clés à renseigner dans Render > Environment (voir .env.example)
+//   → server.js   (CE FICHIER) — paiements MTN + Orange réels
+//   → database.js              — table pending_payments ajoutée
+//   → .env.example             — clés API documentées
 //
 // ================================================================
 
@@ -28,11 +24,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'nextera_secret_2024_CHANGE_ME';
 // ================================================================
 // MIDDLEWARES
 // ================================================================
-app.use(cors({
-    origin: '*',
-    methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-    allowedHeaders: ['Content-Type','Authorization']
-}));
+app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -61,187 +53,242 @@ async function adminMiddleware(req, res, next) {
 }
 
 // ================================================================
-//  ██████╗ █████╗ ███╗   ███╗██████╗  █████╗ ██╗   ██╗
-// ██╔════╝██╔══██╗████╗ ████║██╔══██╗██╔══██╗╚██╗ ██╔╝
-// ██║     ███████║██╔████╔██║██████╔╝███████║ ╚████╔╝
-// ██║     ██╔══██║██║╚██╔╝██║██╔═══╝ ██╔══██║  ╚██╔╝
-// ╚██████╗██║  ██║██║ ╚═╝ ██║██║     ██║  ██║   ██║
-//  ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝
 //
-// Campay unifie MTN Mobile Money + Orange Money en une seule API.
-// Tu n'as qu'un seul compte marchand et un seul jeu de clés.
+//  ██████╗  █████╗ ██╗███████╗███╗   ███╗███████╗███╗   ██╗████████╗███████╗
+//  ██╔══██╗██╔══██╗██║██╔════╝████╗ ████║██╔════╝████╗  ██║╚══██╔══╝██╔════╝
+//  ██████╔╝███████║██║█████╗  ██╔████╔██║█████╗  ██╔██╗ ██║   ██║   ███████╗
+//  ██╔═══╝ ██╔══██║██║██╔══╝  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   ╚════██║
+//  ██║     ██║  ██║██║███████╗██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   ███████║
+//  ╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
 //
-// ─── OÙ METTRE TES CLÉS ────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// MTN MOBILE MONEY — DÉPÔT (Collection)
+// ══════════════════════════════════════════════════════════════
 //
-//   Sur Render : Dashboard → nextera-api → Environment → Add Variable
+// CLÉS À RENSEIGNER dans Render → Dashboard → nextera-api → Environment :
 //
-//   CAMPAY_USERNAME  = ton nom d'utilisateur Campay
-//   CAMPAY_PASSWORD  = ton mot de passe Campay
-//   CAMPAY_APP_NAME  = le nom de ton application dans Campay
+//   MTN_BASE_URL      = https://sandbox.momodeveloper.mtn.com
+//                       ↑ sandbox pour tester / prod : même URL,
+//                         changer seulement MTN_TARGET_ENV
 //
-//   Ces trois variables suffisent pour MTN + Orange en production.
+//   MTN_PRIMARY_KEY   = ta clé d'abonnement "Collection"
+//                       Où la trouver :
+//                       momodeveloper.mtn.com → Profile → Subscriptions
+//                       → copier "Primary Key" du produit Collection
 //
-// ─── OBTENIR TES CLÉS CAMPAY ───────────────────────────────────
+//   MTN_API_USER      = UUID de ton API User
+//                       Comment le créer : voir .env.example section MTN
 //
-//   1. Va sur https://campay.net → "Get Started"
-//   2. Crée un compte marchand (entreprise ou particulier)
-//   3. Fournis : nom, numéro de téléphone Cameroun, pièce d'identité
-//   4. Une fois validé, dans Dashboard → API → copie :
-//      - Username  → CAMPAY_USERNAME
-//      - Password  → CAMPAY_PASSWORD
-//      - App Name  → CAMPAY_APP_NAME
-//   5. Ajoute ces 3 variables dans Render et le service redémarre
+//   MTN_API_KEY       = clé secrète liée à ton API User
+//                       Comment la créer : voir .env.example section MTN
 //
-// ─── MODE SIMULATION ───────────────────────────────────────────
+//   MTN_TARGET_ENV    = sandbox    (pour les tests avec argent fictif)
+//                       mtncameroon (pour la production Cameroun)
 //
-//   Si les clés Campay ne sont pas encore configurées, l'app
-//   fonctionne en mode simulation : les dépôts créditent directement
-//   le solde sans appeler Campay.
-//   Le log du serveur indique clairement l'état :
-//     ✅ Campay : ACTIF (argent réel)
-//     ⚠️  Campay : SIMULATION (CAMPAY_USERNAME non configuré)
+//   MTN_CURRENCY      = XAF
 //
-// ================================================================
+//   MTN_CALLBACK_URL  = https://TON-SERVICE.onrender.com/api/payment/mtn/callback
+//                       ↑ Remplacer TON-SERVICE par le vrai nom de ton service Render
+//
+// ══════════════════════════════════════════════════════════════
 
-// ── URL de base Campay ─────────────────────────────────────────
-// Sandbox (tests) : https://demo.campay.net/api
-// Production      : https://campay.net/api
-// ✏️  Changer CAMPAY_BASE_URL=https://campay.net/api quand tu passes en prod
-// Vérification : fetch() est natif depuis Node 18.
-// Si tu vois "fetch is not defined", mets à jour Node ou ajoute node-fetch.
-if (typeof fetch === 'undefined') {
-    console.error('❌ fetch() non disponible — Node.js 18+ requis. Version actuelle:', process.version);
-    process.exit(1);
+// ── Vérifie si MTN est configuré (sinon → mode simulation) ──
+function mtnIsConfigured() {
+    const k = (process.env.MTN_PRIMARY_KEY || '').trim();
+    const u = (process.env.MTN_API_USER    || '').trim();
+    const a = (process.env.MTN_API_KEY     || '').trim();
+    return k.length > 0 && u.length > 0 && a.length > 0
+        && !k.includes('VOTRE') && !u.includes('VOTRE') && !a.includes('VOTRE');
 }
 
-const CAMPAY_BASE_URL = process.env.CAMPAY_BASE_URL || 'https://demo.campay.net/api';
+// ── Obtenir un token Bearer MTN ──────────────────────────────
+// MTN utilise OAuth2 Basic : on encode apiUser:apiKey en Base64.
+// Le token dure 3600 secondes.
+async function getMtnToken() {
+    const credentials = Buffer.from(
+        `${process.env.MTN_API_USER}:${process.env.MTN_API_KEY}`
+    ).toString('base64');
 
-// ── Vérifie si Campay est configuré ───────────────────────────
-function campayIsConfigured() {
-    // Retourne true uniquement si les deux variables sont définies,
-    // non vides, et ne contiennent pas les valeurs placeholder du .env.example.
-    const u = (process.env.CAMPAY_USERNAME || '').trim();
-    const p = (process.env.CAMPAY_PASSWORD || '').trim();
-    return u.length > 0
-        && p.length > 0
-        && !u.includes('VOTRE')
-        && !u.includes('votre');
+    const res = await fetch(
+        `${process.env.MTN_BASE_URL}/collection/token/`,
+        {
+            method: 'POST',
+            headers: {
+                // Authorization : Basic <base64(apiUser:apiKey)>
+                'Authorization':              `Basic ${credentials}`,
+                // Ta clé d'abonnement MTN Collection
+                'Ocp-Apim-Subscription-Key': process.env.MTN_PRIMARY_KEY,
+            }
+        }
+    );
+    if (!res.ok) throw new Error(`MTN token ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return data.access_token; // Bearer token à utiliser dans les appels suivants
 }
 
-// ── Obtenir un token d'accès Campay ───────────────────────────
-// Campay utilise OAuth2 : on échange username/password contre un token Bearer.
-// Le token dure 60 minutes — on en génère un nouveau à chaque appel.
-async function getCampayToken() {
-    const response = await fetch(`${CAMPAY_BASE_URL}/token/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            username: process.env.CAMPAY_USERNAME,  // ← variable CAMPAY_USERNAME dans Render
-            password: process.env.CAMPAY_PASSWORD   // ← variable CAMPAY_PASSWORD dans Render
-        })
-    });
+// ── Initier un paiement MTN (Request To Pay) ─────────────────
+// MTN envoie une notification push sur le téléphone de l'utilisateur.
+// L'utilisateur entre son PIN → MTN appelle le webhook de confirmation.
+async function mtnRequestToPay({ amount, phone, referenceId, userId }) {
+    const token = await getMtnToken();
 
-    if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`Campay auth error ${response.status}: ${txt}`);
-    }
+    // Formatage du numéro : 069XXXXXX → 237690XXXXXX
+    const clean = phone.replace(/[\s\-\(\)\+]/g, '');
+    const msisdn = clean.startsWith('237') ? clean : `237${clean.replace(/^0/, '')}`;
 
-    const data = await response.json();
-    // data.token contient le Bearer token à utiliser dans les prochains appels
-    return data.token;
+    const res = await fetch(
+        `${process.env.MTN_BASE_URL}/collection/v1_0/requesttopay`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization':              `Bearer ${token}`,
+                // UUID unique pour cette transaction — on le stocke pour suivre le statut
+                'X-Reference-Id':             referenceId,
+                // sandbox = tests / mtncameroon = production Cameroun
+                'X-Target-Environment':       process.env.MTN_TARGET_ENV,
+                'Ocp-Apim-Subscription-Key': process.env.MTN_PRIMARY_KEY,
+                // MTN appellera cette URL quand le paiement est confirmé/refusé
+                'X-Callback-Url':             process.env.MTN_CALLBACK_URL || '',
+                'Content-Type':               'application/json',
+            },
+            body: JSON.stringify({
+                amount:    String(amount),     // Montant en XAF (string obligatoire)
+                currency:  process.env.MTN_CURRENCY || 'XAF',
+                externalId: userId,            // Ton identifiant interne
+                payer: {
+                    partyIdType: 'MSISDN',     // Paiement par numéro de téléphone
+                    partyId:     msisdn        // Numéro formaté avec indicatif pays
+                },
+                payerMessage: `Depot NextEra ${amount} XAF`,  // Texte sur le tel du payeur
+                payeeNote:    `Compte ${userId}`               // Note interne
+            })
+        }
+    );
+    // MTN répond 202 Accepted (pas 200) quand la demande est bien initiée
+    if (res.status !== 202) throw new Error(`MTN requestToPay ${res.status}: ${await res.text()}`);
+    return referenceId;
 }
 
-// ── Initier un dépôt via Campay (MTN ou Orange selon le numéro) ─
-// Campay détecte automatiquement l'opérateur depuis le numéro de téléphone :
-//   - 67X, 65X → MTN Mobile Money
-//   - 69X, 65X → Orange Money
-// L'utilisateur reçoit une notification push et entre son PIN.
-async function campayCollect({ amount, phone, userId, referenceId }) {
-    const token = await getCampayToken();
+// ── Vérifier le statut d'un paiement MTN ─────────────────────
+// Statuts : "SUCCESSFUL", "FAILED", "PENDING"
+async function mtnCheckStatus(referenceId) {
+    const token = await getMtnToken();
+    const res = await fetch(
+        `${process.env.MTN_BASE_URL}/collection/v1_0/requesttopay/${referenceId}`,
+        {
+            headers: {
+                'Authorization':              `Bearer ${token}`,
+                'X-Target-Environment':       process.env.MTN_TARGET_ENV,
+                'Ocp-Apim-Subscription-Key': process.env.MTN_PRIMARY_KEY,
+            }
+        }
+    );
+    if (!res.ok) throw new Error(`MTN status ${res.status}: ${await res.text()}`);
+    return await res.json(); // { status, amount, currency, payer, ... }
+}
 
-    // Formater le numéro : supprimer espaces, +, et ajouter 237 si absent
-    const clean = phone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
-    const fullPhone = clean.startsWith('237') ? clean : `237${clean}`;
+// ══════════════════════════════════════════════════════════════
+// ORANGE MONEY — DÉPÔT (Web Pay)
+// ══════════════════════════════════════════════════════════════
+//
+// CLÉS À RENSEIGNER dans Render → Dashboard → nextera-api → Environment :
+//
+//   ORANGE_CLIENT_ID      = ton Client ID Orange Developer
+//                           Où le trouver :
+//                           developer.orange.com → My Apps → ton app → Credentials
+//
+//   ORANGE_CLIENT_SECRET  = ton Client Secret Orange Developer
+//                           Même endroit que le Client ID
+//                           ⚠️  Ne jamais partager cette valeur
+//
+//   ORANGE_MERCHANT_KEY   = clé marchande fournie par Orange Cameroun
+//                           → En sandbox  : clé de test dans la doc Orange
+//                           → En prod     : fournie par Orange Cameroun Business
+//                                           Contacter : +237 655 000 000
+//
+//   ORANGE_MERCHANT_PHONE = ton numéro de compte marchand Orange avec indicatif
+//                           Exemple : 237690000001
+//
+//   ORANGE_NOTIF_URL      = https://TON-SERVICE.onrender.com/api/payment/orange/callback
+//                           ↑ URL appelée par Orange quand le paiement est confirmé
+//
+//   ORANGE_RETURN_URL     = https://TON-SERVICE.onrender.com?payment=success
+//                           ↑ Page affichée à l'utilisateur après le paiement
+//
+//   ORANGE_CANCEL_URL     = https://TON-SERVICE.onrender.com?payment=cancelled
+//                           ↑ Page affichée si l'utilisateur annule
+//
+// ══════════════════════════════════════════════════════════════
 
-    const response = await fetch(`${CAMPAY_BASE_URL}/collect/`, {
+// ── Vérifie si Orange est configuré (sinon → mode simulation) ─
+function orangeIsConfigured() {
+    const id  = (process.env.ORANGE_CLIENT_ID     || '').trim();
+    const sec = (process.env.ORANGE_CLIENT_SECRET || '').trim();
+    const key = (process.env.ORANGE_MERCHANT_KEY  || '').trim();
+    return id.length > 0 && sec.length > 0 && key.length > 0
+        && !id.includes('VOTRE') && !sec.includes('VOTRE') && !key.includes('VOTRE');
+}
+
+// ── Obtenir un token OAuth2 Orange ───────────────────────────
+// Orange utilise OAuth2 client_credentials.
+// Le token dure 3600 secondes.
+async function getOrangeToken() {
+    const credentials = Buffer.from(
+        `${process.env.ORANGE_CLIENT_ID}:${process.env.ORANGE_CLIENT_SECRET}`
+    ).toString('base64');
+
+    const res = await fetch('https://api.orange.com/oauth/v3/token', {
         method: 'POST',
         headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type':  'application/json'
+            // Authorization : Basic <base64(clientId:clientSecret)>
+            'Authorization': `Basic ${credentials}`,
+            'Content-Type':  'application/x-www-form-urlencoded',
+            'Accept':        'application/json',
         },
-        body: JSON.stringify({
-            amount:           String(amount),   // Montant en XAF (string)
-            currency:         'XAF',            // Devise Cameroun
-            from:             fullPhone,         // Numéro avec indicatif pays
-            description:      `Dépôt NextEra — ${amount} XAF`,  // Affiché sur le tel
-            external_reference: referenceId,    // Ta référence interne (pour le webhook)
-            // app_name : le nom de ton app enregistré dans Campay
-            // ✏️  Doit correspondre exactement à ce que tu as mis dans Campay Dashboard
-            app_name:         process.env.CAMPAY_APP_NAME || ''
-        })
+        body: 'grant_type=client_credentials' // obligatoire pour OAuth2
     });
-
-    if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`Campay collect error ${response.status}: ${txt}`);
-    }
-
-    const data = await response.json();
-    // data.reference : référence Campay pour suivre la transaction
-    // data.ussd_code : code USSD si l'utilisateur doit le composer manuellement
-    return data;
+    if (!res.ok) throw new Error(`Orange token ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return data.access_token;
 }
 
-// ── Vérifier le statut d'une transaction Campay ───────────────
-// Statuts possibles : "SUCCESSFUL", "FAILED", "PENDING"
-async function campayCheckStatus(reference) {
-    const token = await getCampayToken();
+// ── Créer une session de paiement Orange Money ───────────────
+// Retourne payment_url → le frontend redirige l'utilisateur vers cette URL.
+// L'utilisateur entre son PIN sur la page Orange → Orange appelle le webhook.
+async function orangeCreatePayment({ amount, phone, orderId, userId }) {
+    const token = await getOrangeToken();
 
-    const response = await fetch(`${CAMPAY_BASE_URL}/transaction/${reference}/`, {
-        method: 'GET',
-        headers: { 'Authorization': `Token ${token}` }
-    });
+    // Formatage du numéro : 069XXXXXX → 237690XXXXXX
+    const clean = phone.replace(/[\s\-\(\)\+]/g, '');
+    const msisdn = clean.startsWith('237') ? clean : `237${clean.replace(/^0/, '')}`;
 
-    if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`Campay status error ${response.status}: ${txt}`);
-    }
-
-    return await response.json();
-    // Retourne : { status, amount, currency, operator, phone, ... }
-}
-
-// ── Initier un retrait via Campay (Disbursement) ───────────────
-// Envoie de l'argent depuis ton compte Campay vers l'utilisateur.
-// Nécessite un solde suffisant dans ton compte marchand Campay.
-async function campayWithdraw({ amount, phone, userId, referenceId }) {
-    const token = await getCampayToken();
-
-    const clean = phone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
-    const fullPhone = clean.startsWith('237') ? clean : `237${clean}`;
-
-    const response = await fetch(`${CAMPAY_BASE_URL}/disburse/`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type':  'application/json'
-        },
-        body: JSON.stringify({
-            amount:             String(amount),
-            currency:           'XAF',
-            to:                 fullPhone,   // Numéro destinataire
-            description:        `Retrait NextEra — ${amount} XAF`,
-            external_reference: referenceId,
-            app_name:           process.env.CAMPAY_APP_NAME || ''
-        })
-    });
-
-    if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(`Campay disburse error ${response.status}: ${txt}`);
-    }
-
-    return await response.json();
+    const res = await fetch(
+        `${process.env.ORANGE_BASE_URL || 'https://api.orange.com/orange-money-webpay/cm/v1'}/webpayment`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type':  'application/json',
+                'Accept':        'application/json',
+            },
+            body: JSON.stringify({
+                merchant_key: process.env.ORANGE_MERCHANT_KEY,  // Ta clé marchande
+                currency:     'OAF',                            // OAF = XAF pour l'API Orange
+                order_id:     orderId,                          // Ton identifiant unique
+                amount:       amount,                           // Montant en XAF (entier)
+                return_url:   process.env.ORANGE_RETURN_URL,   // Après paiement réussi
+                cancel_url:   process.env.ORANGE_CANCEL_URL,   // Si l'utilisateur annule
+                notif_url:    process.env.ORANGE_NOTIF_URL,    // Webhook Orange → ton serveur
+                lang:         'fr',                             // Langue de la page Orange
+                reference:    userId,                           // Ta référence interne
+            })
+        }
+    );
+    if (!res.ok) throw new Error(`Orange createPayment ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    // data.payment_url : URL vers laquelle rediriger l'utilisateur
+    // data.pay_token   : token pour vérifier le statut plus tard
+    return { paymentUrl: data.payment_url, payToken: data.pay_token };
 }
 
 // ================================================================
@@ -249,12 +296,11 @@ async function campayWithdraw({ amount, phone, userId, referenceId }) {
 // ================================================================
 
 // ── INSCRIPTION ────────────────────────────────────────────────
-// Chaque nouvel inscrit reçoit automatiquement 1 000 XAF de bonus.
-// ✏️  Pour changer le montant du bonus → cherche BONUS_INSCRIPTION ci-dessous
+// Chaque nouvel inscrit reçoit 1 000 XAF de bonus de bienvenue.
+// ✏️  Pour changer ce montant : modifie BONUS_INSCRIPTION ci-dessous.
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { name, email, phone, password, referralCode } = req.body;
-
         if (!name || !email || !phone || !password)
             return res.status(400).json({ success: false, message: 'Tous les champs sont requis' });
         if (password.length < 6)
@@ -267,7 +313,6 @@ app.post('/api/auth/register', async (req, res) => {
         const userId        = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const generatedCode = 'NEXT-' + userId.slice(-8).toUpperCase();
 
-        // Vérifier le code parrainage
         let referredBy = null;
         if (referralCode && referralCode.trim()) {
             const rows = await db.query('SELECT id FROM users WHERE referral_code = $1', [referralCode.trim()]);
@@ -275,30 +320,24 @@ app.post('/api/auth/register', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        await db.createUser({
-            id: userId, name, email: normalEmail, phone,
-            password: hashedPassword, referralCode: generatedCode, referredBy
-        });
+        await db.createUser({ id: userId, name, email: normalEmail, phone, password: hashedPassword, referralCode: generatedCode, referredBy });
 
-        // ── BONUS_INSCRIPTION ────────────────────────────────────
-        // Crédite 1 000 XAF sur le compte du nouvel inscrit.
-        // ✏️  Pour changer le montant : modifie la valeur 1000 ci-dessous.
-        const BONUS_INSCRIPTION = 1000; // XAF offerts à chaque inscription
+        // ── BONUS DE BIENVENUE ─────────────────────────────────
+        // ✏️  Changer 1000 par le montant souhaité (en XAF)
+        const BONUS_INSCRIPTION = 1000;
         await db.updateBalance(userId, BONUS_INSCRIPTION);
         await db.addTransaction(userId, 'bonus', BONUS_INSCRIPTION, {
-            description: `🎁 Bonus de bienvenue — ${BONUS_INSCRIPTION} XAF offerts à l'inscription !`
+            description: `🎁 Bonus de bienvenue — ${BONUS_INSCRIPTION} XAF offerts !`
         });
-        console.log(`[Inscription] Bonus ${BONUS_INSCRIPTION} XAF crédité → ${name} (${normalEmail})`);
-        // ────────────────────────────────────────────────────────
+        console.log(`[Inscription] +${BONUS_INSCRIPTION} XAF bonus → ${name} (${normalEmail})`);
+        // ──────────────────────────────────────────────────────
 
         const token = jwt.sign({ userId, email: normalEmail }, JWT_SECRET, { expiresIn: '30d' });
         res.json({
             success: true, token,
             user: { id: userId, name, email: normalEmail, phone, referralCode: generatedCode, isAdmin: false },
-            // On informe le frontend du bonus pour afficher un message de bienvenue
-            welcomeBonus: BONUS_INSCRIPTION
+            welcomeBonus: BONUS_INSCRIPTION // le frontend peut afficher ce message de bienvenue
         });
-
     } catch (err) {
         console.error('Register error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
@@ -311,11 +350,9 @@ app.post('/api/auth/login', async (req, res) => {
         const { email, password } = req.body;
         if (!email || !password)
             return res.status(400).json({ success: false, message: 'Email et mot de passe requis' });
-
         const user = await db.getUserByEmail(email.toLowerCase().trim());
         if (!user || !(await bcrypt.compare(password, user.password)))
             return res.status(401).json({ success: false, message: 'Email ou mot de passe incorrect' });
-
         const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
         res.json({
             success: true, token,
@@ -408,39 +445,25 @@ app.post('/api/invest', authMiddleware, async (req, res) => {
     try {
         const { machineId, amount } = req.body;
         const numAmount = parseInt(amount);
-
-        const machines = await db.getMachines();
-        const machine  = machines.find(m => String(m.id) === String(machineId));
+        const machines  = await db.getMachines();
+        const machine   = machines.find(m => String(m.id) === String(machineId));
         if (!machine)
             return res.status(400).json({ success: false, message: 'Machine introuvable' });
         if (numAmount < parseInt(machine.price))
             return res.status(400).json({ success: false, message: `Montant minimum: ${machine.price} XAF` });
-
         const portfolio = await db.getPortfolio(req.userId);
         if (!portfolio || parseInt(portfolio.balance) < numAmount)
             return res.status(400).json({ success: false, message: 'Solde insuffisant' });
 
         const investmentId = uuidv4();
-        await db.createInvestment({
-            id: investmentId, userId: req.userId,
-            machineId: machine.id, machineName: machine.name,
-            machineIcon: machine.icon || '⚡',
-            amount: numAmount, dailyYield: parseInt(machine.daily_yield)
-        });
-
+        await db.createInvestment({ id: investmentId, userId: req.userId, machineId: machine.id, machineName: machine.name, machineIcon: machine.icon || '⚡', amount: numAmount, dailyYield: parseInt(machine.daily_yield) });
         await db.updateBalance(req.userId, numAmount, 'subtract');
-        await db.query(
-            'UPDATE portfolios SET total_invested = total_invested + $1 WHERE user_id = $2',
-            [numAmount, req.userId]
-        );
+        await db.query('UPDATE portfolios SET total_invested = total_invested + $1 WHERE user_id = $2', [numAmount, req.userId]);
 
         const user = await db.getUserById(req.userId);
         if (user?.referred_by) await processReferralCommissions(req.userId, numAmount);
 
-        await db.addTransaction(req.userId, 'investment', numAmount, {
-            description: `Achat ${machine.icon || '⚡'} ${machine.name}`
-        });
-
+        await db.addTransaction(req.userId, 'investment', numAmount, { description: `Achat ${machine.icon || '⚡'} ${machine.name}` });
         const newP = await db.getPortfolio(req.userId);
         res.json({ success: true, message: `✅ ${machine.icon} ${machine.name} acheté !`, newBalance: parseInt(newP.balance) });
     } catch (err) {
@@ -453,249 +476,295 @@ app.post('/api/invest', authMiddleware, async (req, res) => {
 // PARRAINAGE PYRAMIDAL (10% / 5% / 3%)
 // ================================================================
 async function processReferralCommissions(investorId, amount) {
-    const levels = [
-        { level: 1, percent: 10 },
-        { level: 2, percent: 5  },
-        { level: 3, percent: 3  }
-    ];
-
-    let investorUser = await db.getUserById(investorId);
-    let currentId    = investorUser?.referred_by;
-
+    const levels = [{ level:1, percent:10 }, { level:2, percent:5 }, { level:3, percent:3 }];
+    let currentId = (await db.getUserById(investorId))?.referred_by;
     for (let i = 0; i < 3 && currentId; i++) {
         const { level, percent } = levels[i];
         const commission = Math.round(amount * percent / 100);
-
         if (commission > 0) {
             await db.updateBalance(currentId, commission);
-            await db.query(
-                'UPDATE portfolios SET referral_earnings = referral_earnings + $1 WHERE user_id = $2',
-                [commission, currentId]
-            );
+            await db.query('UPDATE portfolios SET referral_earnings = referral_earnings + $1 WHERE user_id = $2', [commission, currentId]);
             await db.addTransaction(currentId, 'referral', commission, {
                 description: `🎁 Commission parrainage Niveau ${level} (${percent}%) — investissement de ${amount.toLocaleString('fr-FR')} XAF`
             });
             const parrain = await db.getUserById(currentId);
             console.log(`[Parrainage] Niveau ${level} → ${parrain?.name || currentId} +${commission} XAF`);
         }
-
-        const parentUser = await db.getUserById(currentId);
-        currentId = parentUser?.referred_by || null;
+        currentId = (await db.getUserById(currentId))?.referred_by || null;
     }
 }
 
 // ================================================================
-//  ██████╗ █████╗ ███╗   ███╗██████╗  █████╗ ██╗   ██╗
-// ██╔════╝██╔══██╗████╗ ████║██╔══██╗██╔══██╗╚██╗ ██╔╝
-// ██║     ███████║██╔████╔██║██████╔╝███████║ ╚████╔╝
-// ██║     ██╔══██║██║╚██╔╝██║██╔═══╝ ██╔══██║  ╚██╔╝
-// ╚██████╗██║  ██║██║ ╚═╝ ██║██║     ██║  ██║   ██║
-//  ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝
-//
-// ROUTE DÉPÔT — MTN + Orange en une seule route
+// PAIEMENTS — MTN MOBILE MONEY (DÉPÔT)
 // ================================================================
+// Flux : utilisateur saisit montant + numéro MTN → notification push
+// → il entre son PIN sur son téléphone → MTN appelle le webhook
+// → le webhook crédite le solde en base.
 
-// ── depositHandler : logique centrale de dépôt ────────────────
-// Appelée par /api/payment/deposit, /api/payment/mtn/deposit, /api/payment/orange/deposit
-async function depositHandler(req, res) {
+app.post('/api/payment/mtn/deposit', authMiddleware, async (req, res) => {
     try {
-        const { amount, phone, operator } = req.body;
+        const { amount, phone } = req.body;
         const numAmount = parseInt(amount);
 
         if (!numAmount || numAmount < 1000)
-            return res.status(400).json({ success: false, message: 'Montant minimum: 1 000  XAF' });
+            return res.status(400).json({ success: false, message: 'Montant minimum: 1 000 XAF' });
         if (!phone || String(phone).replace(/\s/g,'').length < 9)
-            return res.status(400).json({ success: false, message: 'Numéro Mobile Money invalide (min 9 chiffres)' });
+            return res.status(400).json({ success: false, message: 'Numéro MTN invalide (min 9 chiffres)' });
 
-        // ── MODE SIMULATION ────────────────────────────────────────
-        // Actif quand CAMPAY_USERNAME n'est pas encore configuré dans Render.
-        // Crédite directement — pratique pour tester l'app avant d'avoir les clés.
-        if (!campayIsConfigured()) {
-            console.warn('[Campay] ⚠️  Clés non configurées — mode simulation');
+        // ── MODE SIMULATION ────────────────────────────────────
+        // Si les clés MTN ne sont pas encore configurées dans Render,
+        // le dépôt est crédité directement (pour tests internes).
+        // Le log affiche un avertissement clair.
+        if (!mtnIsConfigured()) {
+            console.warn('[MTN] ⚠️  Clés non configurées — simulation active');
             await db.updateBalance(req.userId, numAmount);
             await db.addTransaction(req.userId, 'deposit', numAmount, {
-                operator: operator || 'campay', phone,
-                description: `[SIMULATION] Dépôt ${numAmount} XAF — configurer CAMPAY_USERNAME pour l'argent réel`
+                operator: 'mtn', phone,
+                description: `[SIMULATION] Dépôt MTN ${numAmount} XAF — ajouter MTN_PRIMARY_KEY dans Render`
             });
             const p = await db.getPortfolio(req.userId);
-            return res.json({
-                success:   true,
-                simulated: true,
-                message:   `✅ [TEST] ${numAmount.toLocaleString('fr-FR')} XAF déposés (simulation)`,
-                newBalance: parseInt(p.balance)
-            });
+            return res.json({ success: true, simulated: true, message: `✅ [TEST] ${numAmount.toLocaleString('fr-FR')} XAF déposés (simulation MTN)`, newBalance: parseInt(p.balance) });
         }
-        // ─────────────────────────────────────────────────────────
+        // ────────────────────────────────────────────────────────
 
-        // ── VRAI PAIEMENT CAMPAY ───────────────────────────────────
-        const referenceId = uuidv4(); // ID unique pour cette transaction
+        // ── VRAI PAIEMENT MTN ──────────────────────────────────
+        const referenceId = uuidv4();
 
-        // Stocker la transaction en "attente" avant d'appeler Campay
-        // (au cas où le serveur redémarre avant le webhook)
+        // 1. Enregistrer la transaction en "attente" avant d'appeler MTN
+        //    (évite de perdre la trace si le serveur redémarre)
         await db.addTransaction(req.userId, 'deposit', numAmount, {
-            operator: operator || 'campay', phone,
-            reference: referenceId,
-            description: `⏳ Dépôt en attente — ${numAmount} XAF (confirmation Mobile Money requise)`
+            operator: 'mtn', phone, reference: referenceId,
+            description: `⏳ Dépôt MTN en attente — ${numAmount} XAF`
         });
-
-        // Sauvegarder le paiement en attente en BDD
         await db.query(
             `INSERT INTO pending_payments (reference_id, user_id, amount, operator, created_at)
-             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-             ON CONFLICT (reference_id) DO NOTHING`,
-            [referenceId, req.userId, numAmount, operator || 'campay']
+             VALUES ($1, $2, $3, 'mtn', CURRENT_TIMESTAMP) ON CONFLICT (reference_id) DO NOTHING`,
+            [referenceId, req.userId, numAmount]
         );
 
-        // Appeler Campay → l'utilisateur reçoit la notif push sur son téléphone
-        const campayResponse = await campayCollect({
-            amount: numAmount, phone, userId: req.userId, referenceId
-        });
+        // 2. Appeler MTN → notification push envoyée sur le téléphone
+        await mtnRequestToPay({ amount: numAmount, phone, referenceId, userId: req.userId });
+        console.log(`[MTN] Dépôt initié — ref:${referenceId} user:${req.userId} ${numAmount} XAF`);
 
-        console.log(`[Campay] Dépôt initié — ref: ${referenceId}, user: ${req.userId}, ${numAmount} XAF, tel: ${phone}`);
-
-        // Répondre immédiatement — le crédit se fait via le webhook
+        // 3. Répondre immédiatement — le crédit se fait via le webhook ci-dessous
         res.json({
-            success:   true,
-            pending:   true,
-            referenceId,
-            campayRef: campayResponse.reference,
-            message:   `📱 Confirmez le paiement de ${numAmount.toLocaleString('fr-FR')} XAF sur votre téléphone !`
+            success: true, pending: true, referenceId,
+            message: `📱 Confirmez le paiement de ${numAmount.toLocaleString('fr-FR')} XAF sur votre téléphone MTN !`
         });
-        // ─────────────────────────────────────────────────────────
-
+        // ────────────────────────────────────────────────────────
     } catch (err) {
-        console.error('[Campay] Deposit error:', err);
-        res.status(500).json({ success: false, message: `Erreur paiement: ${err.message}` });
+        console.error('[MTN] Deposit error:', err);
+        res.status(500).json({ success: false, message: `Erreur MTN: ${err.message}` });
     }
-}
-
-// Route principale — les alias ci-dessous appellent aussi depositHandler
-app.post('/api/payment/deposit', authMiddleware, depositHandler);
-
-// Alias MTN et Orange → Campay les gère automatiquement.
-// Ces routes existent pour la compatibilité avec l'ancien frontend.
-// Elles injectent l'opérateur dans req.body et appellent la même logique.
-app.post('/api/payment/mtn/deposit',    authMiddleware, async (req, res) => {
-    req.body.operator = 'mtn';
-    return depositHandler(req, res);
-});
-app.post('/api/payment/orange/deposit', authMiddleware, async (req, res) => {
-    req.body.operator = 'orange';
-    return depositHandler(req, res);
 });
 
-// ================================================================
-// CAMPAY — WEBHOOK (Confirmation de paiement)
-// ================================================================
-// Campay appelle cette URL automatiquement quand un paiement est
-// confirmé (SUCCESSFUL) ou refusé (FAILED) par l'utilisateur.
+// ── MTN — WEBHOOK ──────────────────────────────────────────────
+// MTN appelle automatiquement cette URL quand l'utilisateur confirme
+// ou refuse le paiement.
 //
-// ✏️  Dans ton Dashboard Campay → Settings → Webhook URL, entre :
-//     https://nextera-api.onrender.com/api/payment/campay/callback
+// ✏️  À configurer dans momodeveloper.mtn.com → ton app → Callback URL :
+//     https://TON-SERVICE.onrender.com/api/payment/mtn/callback
+//     (et aussi dans la variable MTN_CALLBACK_URL dans Render)
 //
-app.post('/api/payment/campay/callback', async (req, res) => {
+app.post('/api/payment/mtn/callback', async (req, res) => {
     try {
-        // Campay envoie ces champs dans le body du webhook :
-        const {
-            reference,          // Référence Campay de la transaction
-            external_reference, // Ta référence interne (referenceId qu'on a envoyé)
-            status,             // "SUCCESSFUL" ou "FAILED"
-            amount,
-            operator,           // "MTN" ou "Orange"
-            phone
-        } = req.body;
+        const { referenceId, status, financialTransactionId } = req.body;
+        console.log(`[MTN Callback] ref:${referenceId} status:${status}`);
 
-        console.log(`[Campay Webhook] ref: ${external_reference}, status: ${status}, ${amount} XAF`);
-
-        // Toujours répondre 200 en premier — Campay retente sinon
+        // Toujours répondre 200 d'abord — MTN retente si on ne répond pas
         res.status(200).json({ received: true });
 
-        const refId = external_reference || reference;
-        if (!refId) return;
+        if (!referenceId) return;
 
-        if (status === 'SUCCESSFUL') {
-            // Récupérer le paiement en attente (et vérifier qu'il n'est pas déjà crédité)
-            const pending = await db.query(
-                'SELECT * FROM pending_payments WHERE reference_id = $1 AND paid = FALSE',
-                [refId]
-            );
-
-            if (pending.length > 0) {
-                const { user_id, amount: pendingAmount } = pending[0];
-                const numAmount = parseInt(pendingAmount);
-
-                // Anti-double-crédit : marquer comme payé en premier
-                await db.query(
-                    'UPDATE pending_payments SET paid = TRUE, paid_at = CURRENT_TIMESTAMP WHERE reference_id = $1',
-                    [refId]
-                );
-
-                // Créditer le solde de l'utilisateur
-                await db.updateBalance(user_id, numAmount);
-
-                // Mettre à jour la description de la transaction
-                await db.query(
-                    `UPDATE transactions SET description = $1 WHERE reference = $2`,
-                    [`✅ Dépôt ${operator || 'Mobile Money'} confirmé — ${numAmount.toLocaleString('fr-FR')} XAF`, refId]
-                );
-
-                console.log(`[Campay Webhook] ✅ Crédité — user: ${user_id}, +${numAmount} XAF via ${operator}`);
-            }
-
-        } else if (status === 'FAILED') {
-            // Supprimer le paiement en attente et noter l'échec
-            await db.query('DELETE FROM pending_payments WHERE reference_id = $1', [refId]);
-            await db.query(
-                `UPDATE transactions SET description = $1 WHERE reference = $2`,
-                [`❌ Dépôt échoué — paiement refusé ou expiré`, refId]
-            );
-            console.log(`[Campay Webhook] ❌ Paiement refusé — ref: ${refId}`);
+        // Double vérification du statut auprès de MTN (sécurité)
+        let finalStatus = status;
+        try {
+            const check = await mtnCheckStatus(referenceId);
+            finalStatus = check.status;
+        } catch (e) {
+            console.warn('[MTN Callback] Impossible de vérifier statut:', e.message);
         }
 
+        if (finalStatus === 'SUCCESSFUL') {
+            const pending = await db.query(
+                'SELECT * FROM pending_payments WHERE reference_id = $1 AND paid = FALSE',
+                [referenceId]
+            );
+            if (pending.length > 0) {
+                const { user_id, amount } = pending[0];
+                // Anti-double-crédit : marquer payé AVANT de créditer
+                await db.query(
+                    'UPDATE pending_payments SET paid = TRUE, paid_at = CURRENT_TIMESTAMP WHERE reference_id = $1',
+                    [referenceId]
+                );
+                await db.updateBalance(user_id, parseInt(amount));
+                await db.query(
+                    `UPDATE transactions SET description = $1 WHERE reference = $2`,
+                    [`✅ Dépôt MTN confirmé — ${parseInt(amount).toLocaleString('fr-FR')} XAF`, referenceId]
+                );
+                console.log(`[MTN Callback] ✅ Crédité — user:${user_id} +${amount} XAF txn:${financialTransactionId}`);
+            }
+        } else if (finalStatus === 'FAILED') {
+            await db.query('DELETE FROM pending_payments WHERE reference_id = $1', [referenceId]);
+            await db.query(
+                `UPDATE transactions SET description = $1 WHERE reference = $2`,
+                [`❌ Dépôt MTN échoué — paiement refusé ou expiré`, referenceId]
+            );
+            console.log(`[MTN Callback] ❌ Échoué — ref:${referenceId}`);
+        }
     } catch (err) {
-        console.error('[Campay Webhook] Erreur:', err);
+        console.error('[MTN Callback] Erreur:', err);
     }
 });
 
-// ================================================================
-// CAMPAY — VÉRIFICATION MANUELLE DU STATUT
-// ================================================================
-// L'utilisateur peut vérifier si son paiement est passé sans attendre.
-// Utile si le webhook tarde ou si la connexion a coupé.
-app.get('/api/payment/status/:referenceId', authMiddleware, async (req, res) => {
+// ── MTN — VÉRIFICATION MANUELLE ───────────────────────────────
+// L'utilisateur peut vérifier si son paiement est passé sans attendre le webhook.
+app.get('/api/payment/mtn/status/:referenceId', authMiddleware, async (req, res) => {
     try {
-        const { referenceId } = req.params;
-
-        if (!campayIsConfigured())
-            return res.json({ success: true, status: 'SIMULATED', message: 'Mode simulation actif' });
-
-        const data = await campayCheckStatus(referenceId);
-        res.json({ success: true, status: data.status, operator: data.operator, data });
-
+        if (!mtnIsConfigured())
+            return res.json({ success: true, status: 'SIMULATED' });
+        const data = await mtnCheckStatus(req.params.referenceId);
+        res.json({ success: true, status: data.status, data });
     } catch (err) {
-        console.error('[Campay Status]', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
 // ================================================================
-// RETRAIT (1 par jour · minimum 1 500 XAF · frais 1%)
+// PAIEMENTS — ORANGE MONEY (DÉPÔT)
+// ================================================================
+// Flux : différent de MTN — Orange utilise une page web dédiée.
+// → Le backend crée une session de paiement → obtient une payment_url
+// → Le frontend redirige l'utilisateur vers cette URL
+// → L'utilisateur entre son PIN sur la page Orange
+// → Orange appelle le webhook de confirmation
+// → Le webhook crédite le solde.
+
+app.post('/api/payment/orange/deposit', authMiddleware, async (req, res) => {
+    try {
+        const { amount, phone } = req.body;
+        const numAmount = parseInt(amount);
+
+        if (!numAmount || numAmount < 1000)
+            return res.status(400).json({ success: false, message: 'Montant minimum: 1 000 XAF' });
+        if (!phone || String(phone).replace(/\s/g,'').length < 9)
+            return res.status(400).json({ success: false, message: 'Numéro Orange invalide (min 9 chiffres)' });
+
+        // ── MODE SIMULATION ────────────────────────────────────
+        if (!orangeIsConfigured()) {
+            console.warn('[Orange] ⚠️  Clés non configurées — simulation active');
+            await db.updateBalance(req.userId, numAmount);
+            await db.addTransaction(req.userId, 'deposit', numAmount, {
+                operator: 'orange', phone,
+                description: `[SIMULATION] Dépôt Orange ${numAmount} XAF — ajouter ORANGE_CLIENT_ID dans Render`
+            });
+            const p = await db.getPortfolio(req.userId);
+            return res.json({ success: true, simulated: true, message: `✅ [TEST] ${numAmount.toLocaleString('fr-FR')} XAF déposés (simulation Orange)`, newBalance: parseInt(p.balance) });
+        }
+        // ────────────────────────────────────────────────────────
+
+        // ── VRAI PAIEMENT ORANGE ────────────────────────────────
+        const orderId = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substr(2,4).toUpperCase();
+
+        await db.addTransaction(req.userId, 'deposit', numAmount, {
+            operator: 'orange', phone, reference: orderId,
+            description: `⏳ Dépôt Orange en attente — ${numAmount} XAF`
+        });
+        await db.query(
+            `INSERT INTO pending_payments (reference_id, user_id, amount, operator, created_at)
+             VALUES ($1, $2, $3, 'orange', CURRENT_TIMESTAMP) ON CONFLICT (reference_id) DO NOTHING`,
+            [orderId, req.userId, numAmount]
+        );
+
+        const { paymentUrl } = await orangeCreatePayment({ amount: numAmount, phone, orderId, userId: req.userId });
+        console.log(`[Orange] Session créée — orderId:${orderId} user:${req.userId} ${numAmount} XAF`);
+
+        // Orange nécessite une redirection → on renvoie l'URL au frontend
+        res.json({
+            success: true, pending: true, orderId, paymentUrl,
+            message: `🟠 Redirection vers Orange Money pour ${numAmount.toLocaleString('fr-FR')} XAF`
+        });
+        // ────────────────────────────────────────────────────────
+    } catch (err) {
+        console.error('[Orange] Deposit error:', err);
+        res.status(500).json({ success: false, message: `Erreur Orange: ${err.message}` });
+    }
+});
+
+// ── ORANGE — WEBHOOK ────────────────────────────────────────────
+// Orange appelle automatiquement cette URL après confirmation/refus.
+//
+// ✏️  À configurer dans developer.orange.com → ton app → notif_url :
+//     https://TON-SERVICE.onrender.com/api/payment/orange/callback
+//     (et aussi dans ORANGE_NOTIF_URL dans Render)
+//
+app.post('/api/payment/orange/callback', async (req, res) => {
+    try {
+        const { order_id, status, txnid, message: msg } = req.body;
+        console.log(`[Orange Callback] orderId:${order_id} status:${status}`);
+
+        res.status(200).json({ received: true }); // Toujours 200 en premier
+
+        if (!order_id) return;
+
+        if (status === 'SUCCESS' || status === 'SUCCESSFULL') {
+            const pending = await db.query(
+                'SELECT * FROM pending_payments WHERE reference_id = $1 AND paid = FALSE',
+                [order_id]
+            );
+            if (pending.length > 0) {
+                const { user_id, amount } = pending[0];
+                await db.query(
+                    'UPDATE pending_payments SET paid = TRUE, paid_at = CURRENT_TIMESTAMP WHERE reference_id = $1',
+                    [order_id]
+                );
+                await db.updateBalance(user_id, parseInt(amount));
+                await db.query(
+                    `UPDATE transactions SET description = $1 WHERE reference = $2`,
+                    [`✅ Dépôt Orange confirmé — ${parseInt(amount).toLocaleString('fr-FR')} XAF`, order_id]
+                );
+                console.log(`[Orange Callback] ✅ Crédité — user:${user_id} +${amount} XAF txn:${txnid}`);
+            }
+        } else {
+            await db.query('DELETE FROM pending_payments WHERE reference_id = $1', [order_id]);
+            await db.query(
+                `UPDATE transactions SET description = $1 WHERE reference = $2`,
+                [`❌ Dépôt Orange échoué — ${msg || 'paiement refusé'}`, order_id]
+            );
+            console.log(`[Orange Callback] ❌ Échoué — orderId:${order_id}`);
+        }
+    } catch (err) {
+        console.error('[Orange Callback] Erreur:', err);
+    }
+});
+
+// ── ROUTE GÉNÉRIQUE (compatibilité frontend) ───────────────────
+// L'ancien frontend appelle /api/payment/deposit avec operator dans le body.
+app.post('/api/payment/deposit', authMiddleware, (req, res) => {
+    const op = (req.body.operator || 'mtn').toLowerCase();
+    if (op === 'orange') return app._router.handle(
+        Object.assign(req, { url: '/api/payment/orange/deposit', path: '/api/payment/orange/deposit' }), res, () => {}
+    );
+    return app._router.handle(
+        Object.assign(req, { url: '/api/payment/mtn/deposit', path: '/api/payment/mtn/deposit' }), res, () => {}
+    );
+});
+
+// ================================================================
+// PAIEMENTS — RETRAIT (1 par jour · minimum 1 500 XAF · frais 1%)
 // ================================================================
 app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
     try {
         const { amount, phone, operator } = req.body;
         const numAmount = parseInt(amount);
 
-        // Validations
         if (!numAmount || numAmount < 1500)
             return res.status(400).json({ success: false, message: 'Montant minimum de retrait : 1 500 XAF' });
         if (!phone || String(phone).replace(/\s/g,'').length < 9)
             return res.status(400).json({ success: false, message: 'Numéro Mobile Money invalide' });
 
-        // 1 seul retrait par jour par compte
         const alreadyWithdrawn = await db.query(
-            `SELECT id FROM transactions
-             WHERE user_id = $1 AND type = 'withdrawal' AND created_at::date = CURRENT_DATE`,
+            `SELECT id FROM transactions WHERE user_id = $1 AND type = 'withdrawal' AND created_at::date = CURRENT_DATE`,
             [req.userId]
         );
         if (alreadyWithdrawn.length > 0)
@@ -705,47 +774,20 @@ app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
         if (!portfolio || parseInt(portfolio.balance) < numAmount)
             return res.status(400).json({ success: false, message: 'Solde insuffisant' });
 
-        const fee       = Math.round(numAmount * 0.01); // 1% de frais
+        const fee       = Math.round(numAmount * 0.01);
         const netAmount = numAmount - fee;
 
-        // Débiter immédiatement (avant d'envoyer via Campay)
         await db.updateBalance(req.userId, numAmount, 'subtract');
-
-        // ── RETRAIT VIA CAMPAY (si configuré) ─────────────────────
-        if (campayIsConfigured()) {
-            try {
-                const referenceId = uuidv4();
-                await campayWithdraw({
-                    amount: netAmount, phone, userId: req.userId, referenceId
-                });
-                await db.addTransaction(req.userId, 'withdrawal', numAmount, {
-                    fee, netAmount, operator: operator || 'campay', phone,
-                    reference: referenceId,
-                    description: `✅ Retrait envoyé via Campay — ${netAmount.toLocaleString('fr-FR')} XAF nets`
-                });
-                console.log(`[Campay] Retrait envoyé — user: ${req.userId}, ${netAmount} XAF → ${phone}`);
-            } catch (campayErr) {
-                // Si Campay échoue, rembourser le solde
-                await db.updateBalance(req.userId, numAmount);
-                console.error('[Campay] Retrait échoué, remboursé:', campayErr.message);
-                return res.status(500).json({ success: false, message: `Retrait échoué: ${campayErr.message}` });
-            }
-        } else {
-            // Mode simulation : juste décrémenter le solde
-            await db.addTransaction(req.userId, 'withdrawal', numAmount, {
-                fee, netAmount, operator: operator || 'mtn', phone,
-                description: `[SIMULATION] Retrait ${netAmount.toLocaleString('fr-FR')} XAF`
-            });
-        }
-        // ─────────────────────────────────────────────────────────
-
-        res.json({
-            success:    true,
-            message:    `✅ ${netAmount.toLocaleString('fr-FR')} XAF en cours d'envoi (frais: ${fee} XAF)`,
-            netAmount, fee,
-            newBalance: parseInt(portfolio.balance) - numAmount
+        await db.addTransaction(req.userId, 'withdrawal', numAmount, {
+            fee, netAmount, operator: operator || 'mtn', phone,
+            description: `Retrait via ${(operator || 'mtn').toUpperCase()} Money — ${netAmount.toLocaleString('fr-FR')} XAF nets`
         });
 
+        res.json({
+            success: true,
+            message: `✅ ${netAmount.toLocaleString('fr-FR')} XAF en cours d'envoi (frais: ${fee} XAF)`,
+            netAmount, fee, newBalance: parseInt(portfolio.balance) - numAmount
+        });
     } catch (err) {
         console.error('Withdraw error:', err);
         res.status(500).json({ success: false, message: 'Erreur lors du retrait' });
@@ -753,7 +795,7 @@ app.post('/api/payment/withdraw', authMiddleware, async (req, res) => {
 });
 
 // ================================================================
-// BONUS JOURNALIER (100 XAF / jour, à réclamer manuellement)
+// BONUS JOURNALIER (100 XAF / jour, réclamation manuelle)
 // ================================================================
 app.post('/api/bonus/claim', authMiddleware, async (req, res) => {
     try {
@@ -786,26 +828,21 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
     try {
         const user      = await db.getUserById(req.userId);
         const portfolio = await db.getPortfolio(req.userId);
-
-        const level1 = await db.query('SELECT id, name, email FROM users WHERE referred_by = $1', [req.userId]);
-        const l1Ids  = level1.map(u => u.id);
-
+        const level1    = await db.query('SELECT id, name, email FROM users WHERE referred_by = $1', [req.userId]);
+        const l1Ids     = level1.map(u => u.id);
         let level2 = [];
         if (l1Ids.length > 0) {
             const ph = l1Ids.map((_, i) => `$${i+1}`).join(',');
             level2 = await db.query(`SELECT id, name FROM users WHERE referred_by IN (${ph})`, l1Ids);
         }
         const l2Ids = level2.map(u => u.id);
-
         let level3 = [];
         if (l2Ids.length > 0) {
             const ph = l2Ids.map((_, i) => `$${i+1}`).join(',');
             level3 = await db.query(`SELECT id, name FROM users WHERE referred_by IN (${ph})`, l2Ids);
         }
-
         res.json({
-            success: true,
-            referralCode:    user?.referral_code,
+            success: true, referralCode: user?.referral_code,
             totalEarnings:   parseInt(portfolio?.referral_earnings || 0),
             directReferrals: level1,
             counts: { level1: level1.length, level2: level2.length, level3: level3.length }
@@ -825,19 +862,18 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
         const portfolios = await db.query('SELECT user_id, balance, total_invested, referral_earnings, total_gains FROM portfolios');
         const stats      = await db.query(`
             SELECT
-                (SELECT COUNT(*) FROM users)::int                            AS "totalUsers",
+                (SELECT COUNT(*) FROM users)::int                             AS "totalUsers",
                 (SELECT COUNT(*) FROM investments WHERE status='active')::int AS "totalInvestments",
-                (SELECT COUNT(*) FROM transactions)::int                     AS "totalTransactions",
-                (SELECT COALESCE(SUM(balance),0) FROM portfolios)::bigint    AS "totalBalance"
+                (SELECT COUNT(*) FROM transactions)::int                      AS "totalTransactions",
+                (SELECT COALESCE(SUM(balance),0) FROM portfolios)::bigint     AS "totalBalance"
         `);
         res.json({
             success: true, users,
             portfolios: portfolios.map(p => ({
-                userId:           p.user_id,
-                balance:          parseInt(p.balance || 0),
-                totalInvested:    parseInt(p.total_invested || 0),
-                referralEarnings: parseInt(p.referral_earnings || 0),
-                totalGains:       parseInt(p.total_gains || 0)
+                userId: p.user_id, balance: parseInt(p.balance||0),
+                totalInvested: parseInt(p.total_invested||0),
+                referralEarnings: parseInt(p.referral_earnings||0),
+                totalGains: parseInt(p.total_gains||0)
             })),
             stats: stats[0]
         });
@@ -855,7 +891,6 @@ app.put('/api/admin/user/:userId', authMiddleware, adminMiddleware, async (req, 
         if (totalInvested !== undefined) await db.query('UPDATE portfolios SET total_invested = $1 WHERE user_id = $2', [totalInvested, userId]);
         res.json({ success: true, message: 'Utilisateur mis à jour' });
     } catch (err) {
-        console.error('Admin update user error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
 });
@@ -869,7 +904,6 @@ app.put('/api/admin/machine/:machineId', authMiddleware, adminMiddleware, async 
         if (dailyYield) await db.query('UPDATE machines SET daily_yield = $1 WHERE id = $2', [dailyYield, machineId]);
         res.json({ success: true, message: 'Machine mise à jour' });
     } catch (err) {
-        console.error('Admin update machine error:', err);
         res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
 });
@@ -881,10 +915,10 @@ app.get('/api/health', async (req, res) => {
     try {
         const r = await db.query('SELECT COUNT(*) AS cnt FROM users');
         res.json({
-            success:   true,
-            status:    'online',
-            users:     parseInt(r[0].cnt),
-            campay:    campayIsConfigured() ? 'actif' : 'simulation',
+            success: true, status: 'online',
+            users:   parseInt(r[0].cnt),
+            mtn:     mtnIsConfigured()    ? 'actif'      : 'simulation',
+            orange:  orangeIsConfigured() ? 'actif'      : 'simulation',
             timestamp: new Date().toISOString()
         });
     } catch (err) {
@@ -892,37 +926,29 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// SPA fallback — toutes les routes non-API → index.html
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// SPA fallback
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ================================================================
 // CRONS AUTOMATIQUES
 // ================================================================
-
-// ── 1. KEEPALIVE anti-sleep Render (ping toutes les 14 min) ───
 function startKeepalive() {
     const SELF_URL = process.env.RENDER_EXTERNAL_URL
         ? `${process.env.RENDER_EXTERNAL_URL}/api/health`
         : `http://localhost:${PORT}/api/health`;
-
     setInterval(() => {
         try {
             const http = SELF_URL.startsWith('https') ? require('https') : require('http');
-            http.get(SELF_URL, (r) => {
-                console.log(`[Keepalive] ${r.statusCode} — ${new Date().toLocaleTimeString('fr-FR')}`);
-            }).on('error', (e) => console.warn('[Keepalive] Ping failed:', e.message));
+            http.get(SELF_URL, r => console.log(`[Keepalive] ${r.statusCode} — ${new Date().toLocaleTimeString('fr-FR')}`))
+                .on('error', e => console.warn('[Keepalive] Ping failed:', e.message));
         } catch (e) { console.warn('[Keepalive] Error:', e.message); }
     }, 14 * 60 * 1000);
-
     console.log('✅ [Keepalive] Ping toutes les 14 minutes');
 }
 
-// ── 2. GAINS JOURNALIERS — distribution automatique à minuit UTC
 function startDailyGainsCron() {
     async function distributeAllUsersGains() {
-        console.log('[Gains CRON] ⏰ Distribution journalière...');
+        console.log('[Gains CRON] ⏰ Distribution journalière démarrée...');
         try {
             const users = await db.query("SELECT DISTINCT user_id FROM investments WHERE status = 'active'");
             let totalUsers = 0, totalXAF = 0;
@@ -935,12 +961,10 @@ function startDailyGainsCron() {
             console.log(`[Gains CRON] ✅ ${totalUsers} utilisateurs crédités, +${totalXAF.toLocaleString('fr-FR')} XAF`);
         } catch (e) { console.error('[Gains CRON] Erreur:', e.message); }
     }
-
     function msUntilMidnightUTC() {
         const now = new Date();
-        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 30)) - now;
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1, 0, 0, 30)) - now;
     }
-
     const delay = msUntilMidnightUTC();
     console.log(`✅ [Gains CRON] Prochaine distribution dans ${Math.round(delay/1000/60)} min (minuit UTC)`);
     setTimeout(() => {
@@ -949,71 +973,48 @@ function startDailyGainsCron() {
     }, delay);
 }
 
-// ── 3. NETTOYAGE — supprime les paiements expirés après 24h
 function startCleanupCron() {
     setInterval(async () => {
         try {
             await db.query("DELETE FROM transactions WHERE created_at < NOW() - INTERVAL '365 days'");
             await db.query("DELETE FROM pending_payments WHERE paid = FALSE AND created_at < NOW() - INTERVAL '24 hours'");
-        } catch (e) { /* Silencieux */ }
+        } catch (e) { /* silencieux */ }
     }, 24 * 60 * 60 * 1000);
 }
 
 // ================================================================
-// COMPTES PAR DÉFAUT (créés si absents au démarrage)
+// COMPTES PAR DÉFAUT
 // ================================================================
 async function createDefaultAccounts() {
-    // Compte admin
     const admin = await db.getUserByEmail('admin@nextera.com');
     if (!admin) {
-        const id   = 'user_admin';
-        const hash = await bcrypt.hash('admin123', 10);
-        await db.query(
-            'INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
-            [id, 'Administrateur', 'admin@nextera.com', '699999999', hash, true, 'NEXT-ADMIN001']
-        );
-        await db.query(
-            'INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,500000,0,0,0) ON CONFLICT (user_id) DO NOTHING',
-            [id]
-        );
+        const id = 'user_admin', hash = await bcrypt.hash('admin123', 10);
+        await db.query('INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
+            [id,'Administrateur','admin@nextera.com','699999999',hash,true,'NEXT-ADMIN001']);
+        await db.query('INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,500000,0,0,0) ON CONFLICT (user_id) DO NOTHING', [id]);
         console.log('✅ Compte admin: admin@nextera.com / admin123');
     }
-
-    // Compte de test
     const test = await db.getUserByEmail('test@nextera.com');
     if (!test) {
-        const id   = 'user_test';
-        const hash = await bcrypt.hash('test123', 10);
-        await db.query(
-            'INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
-            [id, 'Jean Dupont', 'test@nextera.com', '690000000', hash, false, 'NEXT-TEST001']
-        );
-        await db.query(
-            'INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,1000,0,0,0) ON CONFLICT (user_id) DO NOTHING',
-            [id]
-        );
+        const id = 'user_test', hash = await bcrypt.hash('test123', 10);
+        await db.query('INSERT INTO users (id,name,email,phone,password,is_admin,referral_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
+            [id,'Jean Dupont','test@nextera.com','690000000',hash,false,'NEXT-TEST001']);
+        await db.query('INSERT INTO portfolios (user_id,balance,total_invested,referral_earnings,total_gains) VALUES ($1,25000,0,0,0) ON CONFLICT (user_id) DO NOTHING', [id]);
         console.log('✅ Compte test: test@nextera.com / test123');
     }
 }
 
 // ================================================================
-// DÉMARRAGE DU SERVEUR
+// DÉMARRAGE
 // ================================================================
 app.listen(PORT, async () => {
     const connected = await db.testConnection();
-    if (!connected) {
-        console.error('❌ Impossible de se connecter à PostgreSQL. Vérifier DATABASE_URL dans Render.');
-        process.exit(1);
-    }
-
+    if (!connected) { console.error('❌ PostgreSQL inaccessible. Vérifier DATABASE_URL dans Render.'); process.exit(1); }
     await db.initTables();
     await createDefaultAccounts();
-
     startKeepalive();
     startDailyGainsCron();
     startCleanupCron();
-
-    const campayOk = campayIsConfigured();
 
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
@@ -1023,7 +1024,7 @@ app.listen(PORT, async () => {
 ║  🧪 Test     : test@nextera.com  / test123                   ║
 ║  🎁 Bonus    : 1 000 XAF offerts à chaque inscription        ║
 ║                                                              ║
-║  CAMPAY (MTN + Orange) :                                     ║
-║  ${campayOk ? '✅ ACTIF — argent réel (clés configurées)         ' : '⚠️  SIMULATION — ajouter CAMPAY_USERNAME dans Render'}   ║
+║  MTN MoMo   : ${mtnIsConfigured()    ? '✅ ACTIF (argent réel)              ' : '⚠️  SIMULATION (MTN_PRIMARY_KEY manquant)  '}║
+║  Orange     : ${orangeIsConfigured() ? '✅ ACTIF (argent réel)              ' : '⚠️  SIMULATION (ORANGE_CLIENT_ID manquant) '}║
 ╚══════════════════════════════════════════════════════════════╝`);
 });
