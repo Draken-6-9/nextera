@@ -502,8 +502,8 @@ async function depositHandler(req, res) {
         const { amount, phone, operator } = req.body;
         const numAmount = parseInt(amount);
 
-        if (!numAmount || numAmount < 1000)
-            return res.status(400).json({ success: false, message: 'Montant minimum: 1 000 XAF' });
+        if (!numAmount || numAmount < 1)
+            return res.status(400).json({ success: false, message: 'Montant minimum: 1  XAF' });
         if (!phone || String(phone).replace(/\s/g,'').length < 9)
             return res.status(400).json({ success: false, message: 'Numéro Mobile Money invalide (min 9 chiffres)' });
 
