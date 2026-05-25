@@ -994,7 +994,7 @@
     // ============================================================
     // COUCHE API
     // ============================================================
-    async function callAPI(endpoint, method = 'GET', body = null, timeout = 15000) {
+    async function callAPI(endpoint, method = 'GET', body = null, timeout = 45000) {
         const controller = new AbortController();
         const timeoutId  = setTimeout(() => controller.abort(), timeout);
         const headers    = { 'Content-Type': 'application/json' };
@@ -1007,9 +1007,9 @@
             return await response.json();
         } catch (err) {
             clearTimeout(timeoutId);
-            if (err.name === 'AbortError') return { success: false, message: 'Le serveur ne répond pas.' };
+            if (err.name === 'AbortError') return { success: false, message: '⏱️ Le serveur met trop de temps à répondre. Vérifiez votre connexion internet et réessayez.' };
             console.error('API Error:', err);
-            return { success: false, message: 'Erreur de connexion au serveur' };
+            return { success: false, message: '❌ Impossible de joindre le serveur. Vérifiez votre connexion internet.' };
         }
     }
 
@@ -1282,16 +1282,66 @@
         const amount   = parseInt(document.getElementById('depositAmount').value);
         const phone    = document.getElementById('depositPhone').value.trim();
         const operator = document.getElementById('depositOperator').value;
-        if (!amount || amount < 1000) { toast('Montant minimum: 1000  XAF'); return; }
+        if (!amount || amount < 1000) { toast('Montant minimum: 1 000 XAF'); return; }
         if (!phone || phone.length < 9) { toast('Numéro invalide (min 9 chiffres)'); return; }
-        toast('Traitement du dépôt...');
-        const data = await callAPI('/payment/deposit', 'POST', { amount, phone, operator });
+
+        // Désactiver le bouton pour éviter le double-clic
+        const btn = document.querySelector('#depositModal .btn-primary');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Traitement...'; }
+
+        toast('⏳ Connexion à ' + (operator === 'orange' ? 'Orange Money' : 'MTN MoMo') + '...');
+
+        // Appel direct à la bonne route selon l'opérateur (plus fiable que la route générique)
+        const route = operator === 'orange' ? '/payment/orange/deposit' : '/payment/mtn/deposit';
+        const data  = await callAPI(route, 'POST', { amount, phone, operator }, 60000);
+
+        if (btn) { btn.disabled = false; btn.textContent = '✅ Payer et déposer'; }
+
         if (data.success) {
+            // Cas 1 — Simulation (clés non configurées) : crédité immédiatement
+            if (data.simulated) {
+                toast(`✅ [TEST] ${amount.toLocaleString('fr-FR')} XAF déposés (simulation)`);
+                closeModal('depositModal');
+                loadDashboard();
+                return;
+            }
+            // Cas 2 — MTN : paiement en attente de confirmation sur le téléphone
+            if (data.pending && operator !== 'orange') {
+                toast(`📱 Confirmez le paiement de ${amount.toLocaleString('fr-FR')} XAF sur votre téléphone MTN puis patientez.`);
+                closeModal('depositModal');
+                // Vérification automatique du statut après 20 secondes
+                setTimeout(async () => {
+                    if (data.referenceId) {
+                        const status = await callAPI(`/payment/mtn/status/${data.referenceId}`, 'GET', null, 20000);
+                        if (status.status === 'SUCCESSFUL') {
+                            toast('✅ Paiement MTN confirmé ! Solde mis à jour.');
+                            loadDashboard();
+                        } else if (status.status === 'FAILED') {
+                            toast('❌ Paiement MTN refusé ou expiré.');
+                        } else {
+                            // Toujours en attente — on recharge quand même le dashboard
+                            loadDashboard();
+                        }
+                    } else {
+                        loadDashboard();
+                    }
+                }, 20000);
+                return;
+            }
+            // Cas 3 — Orange : redirection vers la page de paiement Orange
+            if (data.paymentUrl) {
+                toast('🟠 Redirection vers Orange Money...');
+                closeModal('depositModal');
+                setTimeout(() => { window.location.href = data.paymentUrl; }, 1000);
+                return;
+            }
+            // Cas générique
             toast(`✅ ${amount.toLocaleString('fr-FR')} XAF déposés !`);
             closeModal('depositModal');
             loadDashboard();
         } else {
-            toast(data.message || 'Erreur lors du dépôt');
+            // Afficher le vrai message d'erreur renvoyé par le serveur
+            toast(data.message || '❌ Erreur lors du dépôt. Réessayez.');
         }
     }
 
