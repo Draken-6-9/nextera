@@ -151,7 +151,7 @@ async function mtnRequestToPay({ amount, phone, referenceId, userId }) {
     const baseUrl   = (process.env.MTN_BASE_URL   || 'https://sandbox.momodeveloper.mtn.com').trim();
     const targetEnv = (process.env.MTN_TARGET_ENV || 'sandbox').trim();
     const subKey    = (process.env.MTN_PRIMARY_KEY || '').trim();
-    const currency: (process.env.MTN_TARGET_ENV === 'sandbox') ? 'EUR' : (process.env.MTN_CURRENCY || 'XAF'),//currency  = (process.env.MTN_CURRENCY   || 'XAF').trim();
+    const currency: (process.env.MTN_TARGET_ENV === 'sandbox') ? 'EUR' : (process.env.MTN_CURRENCY || 'XAF').trim();//currency  = (process.env.MTN_CURRENCY   || 'XAF').trim();
     const callbackUrl = (process.env.MTN_CALLBACK_URL || '').trim();
 
     // Formatage du numéro : 069XXXXXX → 237690XXXXXX
